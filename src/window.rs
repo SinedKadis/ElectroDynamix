@@ -4,7 +4,6 @@ use bevy::{
     css::GREEN,
     prelude::*,
 };
-use bevy::math::ops::powf;
 
 pub(crate) struct WindowPlugin;
 
@@ -12,6 +11,7 @@ impl Plugin for WindowPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup);
         app.add_systems(PostStartup, setup_camera);
+        app.add_systems(FixedUpdate, fix_viewpoint);
 
     }
 }
@@ -39,11 +39,8 @@ fn setup(
     // Create a minimal UI explaining how to interact with the example
     commands.spawn((
         Text::new(
-            "Move the mouse to see the circle follow your cursor.\n\
-                    Use the arrow keys to move the camera.\n\
-                    Use the comma and period keys to zoom in and out.\n\
-                    Use the WASD keys to move the viewport.\n\
-                    Use the IJKL keys to resize the viewport.",
+            "Use the mouse wheel to zoom in and out.\n\
+                  Use the WASD keys to move the camera.",
         ),
         Node {
             position_type: PositionType::Absolute,
@@ -70,18 +67,23 @@ fn setup(
 }
 
 fn setup_camera(camera_query: Single<(&mut Camera, &mut Transform, &mut Projection)>){
-    let ( _camera, _transform, projection) = camera_query.into_inner();
+    let ( _camera, _transform, mut projection) = camera_query.into_inner();
 
-    if let Projection::Orthographic(projection2d) = & *projection {
-        // if accumulated_mouse_scroll.delta != Vec2::ZERO {
-        //     let delta = accumulated_mouse_scroll.delta;
-        //     if delta.y < 0f32 {
-        //         projection2d.scale *= powf(4.0f32, time.delta_secs() * crate::control::MOUSE_SENSITIVITY * 2f32);
-        //     } else {
-        //         projection2d.scale *= powf(0.25f32, time.delta_secs() * crate::control::MOUSE_SENSITIVITY * 2f32);
-        //     }
-        // }
-        info!("Camera scale: {}", projection2d.scale);
+    if let Projection::Orthographic(projection2d) = &mut *projection {
+        projection2d.scale = 0.1;
+    }
+}
+
+fn fix_viewpoint(camera_query: Single<(&mut Camera, &Transform, &Projection)>,
+                 window: Single<&Window>,){
+    let (mut camera, _transform, _projection) = camera_query.into_inner();
+
+    let window_size = window.resolution.physical_size();
+    if let Some(viewport) = camera.viewport.as_mut() {
+        // Reset viewport size on window resize
+        if viewport.physical_size.x != window_size.x || viewport.physical_size.y != window_size.y {
+            viewport.physical_size = window_size;
+        }
     }
 }
 
