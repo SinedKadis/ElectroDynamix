@@ -1,8 +1,10 @@
-pub mod control;
-mod window;
-mod world;
+
+mod block;
+mod plugins;
 
 use bevy::prelude::*;
+use plugins::{control, window, world};
+
 
 fn main() {
     App::new()

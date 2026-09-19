@@ -5,7 +5,7 @@ use bevy::{
     prelude::*,
 };
 
-pub(crate) struct WindowPlugin;
+pub struct WindowPlugin;
 
 impl Plugin for WindowPlugin {
     fn build(&self, app: &mut App) {
