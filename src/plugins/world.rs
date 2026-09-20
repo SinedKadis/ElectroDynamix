@@ -11,6 +11,8 @@ impl Plugin for WorldPlugin {
     }
 }
 
+const GRID_COLOR: Srgba = WHITE;
+
 fn draw_grid(
     camera_query: Single<(&Camera, &GlobalTransform)>,
     window: Single<&Window>,
@@ -21,7 +23,7 @@ fn draw_grid(
     if let Some(cursor_position) = window.cursor_position()
         && let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position)
     {
-        gizmos.grid_2d(world_pos.round(), UVec2::new(10, 10), Vec2::new(1., 1.), WHITE);
+        gizmos.grid_2d(world_pos.round(), UVec2::new(10, 10), Vec2::new(1., 1.), GRID_COLOR);
         // gizmos.circle_2d(world_pos, 10., WHITE);
         // // Should be the same as world_pos
         // gizmos.circle_2d(world_check, 8., RED);

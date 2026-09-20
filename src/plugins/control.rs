@@ -29,39 +29,21 @@ fn controls(
     accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    meshes: ResMut<Assets<Mesh>>,
+    materials: ResMut<Assets<ColorMaterial>>,
     window: Single<&Window>,
-    mut blocks: ResMut<Blocks>
+    mut blocks: ResMut<Blocks>,
+    interaction_query: Query<
+        (
+            &Interaction,
+        )
+    >,
 ) {
 
     let (camera, mut transform, mut projection,camera_transform)
         = camera_query.into_inner();
 
-    if mouse_button_input.pressed(MouseButton::Left) {
-        // info!("left mouse currently pressed");
-        if let Some(cursor_position) = window.cursor_position()
-            && let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position)
-        {
-
-            let x = &(world_pos.x.floor() as i32);
-            let y = &(world_pos.y.floor() as i32);
-
-            if blocks.pos.contains(&(*x, *y)) {
-                return;
-            }
-
-
-            blocks.pos.push((*x, *y));
-            commands.spawn((
-                Mesh2d(meshes.add(Rectangle::new(1.0, 1.0))),
-                MeshMaterial2d(materials.add(Color::from(BLUE))),
-                Transform::from_xyz(*x as f32 + 0.5,
-                                    *y as f32 + 0.5, 1.0)
-            ));
-        }
-
-    }
+    on_mouse_click(&mouse_button_input, &mut commands, meshes, materials, window, &mut blocks, &interaction_query, camera, camera_transform);
 
     if mouse_button_input.just_pressed(MouseButton::Left) {
 
@@ -100,6 +82,46 @@ fn controls(
         }
         if input.pressed(KeyCode::KeyD) {
             transform.translation.x += fspeed;
+        }
+    }
+}
+
+fn on_mouse_click(
+    mouse_button_input: &Res<ButtonInput<MouseButton>>,
+    commands: &mut Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    window: Single<&Window>,
+    blocks: &mut ResMut<Blocks>,
+    interaction_query: &Query<(&Interaction,)>,
+    camera: &Camera,
+    camera_transform: &GlobalTransform
+) {
+    if mouse_button_input.pressed(MouseButton::Left) {
+        // info!("left mouse currently pressed");
+        for interaction in interaction_query {
+            if interaction != (&Interaction::None,) {
+                return;
+            }
+        }
+        if let Some(cursor_position) = window.cursor_position()
+            && let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position)
+        {
+            let x = &(world_pos.x.floor() as i32);
+            let y = &(world_pos.y.floor() as i32);
+
+            if blocks.pos.contains(&(*x, *y)) {
+                return;
+            }
+
+
+            blocks.pos.push((*x, *y));
+            commands.spawn((
+                Mesh2d(meshes.add(Rectangle::new(1.0, 1.0))),
+                MeshMaterial2d(materials.add(Color::from(BLUE))),
+                Transform::from_xyz(*x as f32 + 0.5,
+                                    *y as f32 + 0.5, 1.0)
+            ));
         }
     }
 }
