@@ -1,5 +1,4 @@
 use crate::block::Blocks;
-use bevy::color::palettes::css::BLUE;
 use bevy::input::mouse::AccumulatedMouseScroll;
 use bevy::math::ops::powf;
 use bevy::prelude::*;
@@ -28,9 +27,6 @@ fn controls(
     time: Res<Time<Fixed>>,
     accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
-    mut commands: Commands,
-    meshes: ResMut<Assets<Mesh>>,
-    materials: ResMut<Assets<ColorMaterial>>,
     window: Single<&Window>,
     mut blocks: ResMut<Blocks>,
     interaction_query: Query<
@@ -38,13 +34,13 @@ fn controls(
             &Interaction,
         )
     >,
-    
+
 ) {
 
     let (camera, mut transform, mut projection,camera_transform)
         = camera_query.into_inner();
 
-    on_mouse_click(&mouse_button_input, &mut commands, meshes, materials, window, &mut blocks, &interaction_query, camera, camera_transform, );
+    on_mouse_click(&mouse_button_input, window, &mut blocks, &interaction_query, camera, camera_transform, );
 
     if mouse_button_input.just_pressed(MouseButton::Left) {
 
@@ -89,9 +85,6 @@ fn controls(
 
 fn on_mouse_click(
     mouse_button_input: &Res<ButtonInput<MouseButton>>,
-    commands: &mut Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
     window: Single<&Window>,
     blocks: &mut ResMut<Blocks>,
     interaction_query: &Query<(&Interaction,)>,

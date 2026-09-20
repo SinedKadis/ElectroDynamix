@@ -1,11 +1,12 @@
+use crate::plugins::config::Config;
+use bevy::color::palettes::css::RED;
+use bevy::input_focus::{FocusCause, InputFocus};
 use bevy::{
     camera::Viewport,
     color::palettes::
     css::GREEN,
     prelude::*,
 };
-use bevy::color::palettes::css::RED;
-use bevy::input_focus::{FocusCause, InputFocus};
 
 pub struct WindowPlugin;
 
@@ -16,19 +17,17 @@ impl Plugin for WindowPlugin {
         app.add_systems(PostStartup, setup_camera);
         app.add_systems(FixedUpdate, fix_viewpoint);
         app.add_systems(Update,button_system);
-
     }
 }
 
 const BACKGROUND_COLOR: Color = Color::linear_rgb(0.01, 0.01, 0.01);
 const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
-const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
+const PRESSED_BUTTON: Color = Color::srgb(0.0,0.0,0.0);
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    assets: Res<AssetServer>,
     window: Single<&Window>,
 ) {
 
@@ -46,18 +45,18 @@ fn setup(
     ));
 
     // Create a minimal UI explaining how to interact with the example
-    commands.spawn((
-        Text::new(
-            "Use the mouse wheel to zoom in and out.\n\
-                  Use the WASD keys to move the camera.",
-        ),
-        Node {
-            position_type: PositionType::Absolute,
-            top: px(12),
-            left: px(12),
-            ..default()
-        },
-    ));
+    // commands.spawn((
+    //     Text::new(
+    //         "Use the mouse wheel to zoom in and out.\n\
+    //               Use the WASD keys to move the camera.",
+    //     ),
+    //     Node {
+    //         position_type: PositionType::Absolute,
+    //         top: px(12),
+    //         left: px(12),
+    //         ..default()
+    //     },
+    // ));
 
     // Add mesh to make camera movement visible
     commands.spawn((
@@ -73,7 +72,9 @@ fn setup(
     ));
 
 
-    commands.spawn(button(&assets));
+    commands.spawn(
+        button(String::from("Toggle grid"))
+    );
 }
 
 fn setup_camera(camera_query: Single<(&mut Camera, &mut Transform, &mut Projection)>){
@@ -109,36 +110,41 @@ fn button_system(
             &mut BorderColor,
             &mut Button,
             &Children,
+            &Name
         ),
         Changed<Interaction>,
     >,
-    mut text_query: Query<&mut Text>,
+    mut config : ResMut<Config>,
 ) {
-    for (entity, interaction, mut color, mut border_color, mut button, children) in
-        &mut interaction_query
+    for (entity,
+        interaction,
+        mut color,
+        mut border_color,
+        mut button,
+        _children,
+        name) in &mut interaction_query
     {
-        let mut text = text_query.get_mut(children[0]).unwrap();
 
         match *interaction {
             Interaction::Pressed => {
                 input_focus.set(entity, FocusCause::Pressed);
-                **text = "Press".to_string();
                 *color = PRESSED_BUTTON.into();
                 *border_color = BorderColor::all(RED);
 
-                // The accessibility system's only update the button's state when the `Button` component is marked as changed.
+
                 button.set_changed();
+                if name.name == "Toggle grid" {
+                    config.draw_grid = !config.draw_grid;
+                }
             }
             Interaction::Hovered => {
                 input_focus.set(entity, FocusCause::Pressed);
-                **text = "Hover".to_string();
                 *color = HOVERED_BUTTON.into();
                 *border_color = BorderColor::all(Color::WHITE);
                 button.set_changed();
             }
             Interaction::None => {
                 input_focus.clear();
-                **text = "Button".to_string();
                 *color = NORMAL_BUTTON.into();
                 *border_color = BorderColor::all(Color::BLACK);
             }
@@ -146,20 +152,22 @@ fn button_system(
     }
 }
 
-fn button(asset_server: &AssetServer) -> impl Bundle {
+fn button(text : String) -> impl Bundle {
     (
         Node {
             width: percent(100),
             height: percent(100),
-            align_items: AlignItems::Center,
-            justify_content: JustifyContent::Center,
+            top: vh(10.0),
+            left: vw(1.0),
+            align_items: AlignItems::DEFAULT,
+            justify_content: JustifyContent::SpaceBetween,
             ..default()
         },
         children![(
             Button,
             Node {
-                width: px(150),
-                height: px(65),
+                width: vmin(24),
+                height: vmin(6),
                 border: UiRect::all(px(5)),
                 // horizontally center child text
                 justify_content: JustifyContent::Center,
@@ -171,17 +179,22 @@ fn button(asset_server: &AssetServer) -> impl Bundle {
             BorderColor::all(Color::WHITE),
             BackgroundColor(Color::BLACK),
             children![(
-                Text::new("Button"),
+                Text::new(&text),
                 TextFont {
-                    font_size: FontSize::Px(33.0),
+                    font_size: FontSize::VMin(3.0),
                     ..default()
                 },
                 TextColor(Color::srgb(0.9, 0.9, 0.9)),
                 TextShadow::default(),
-            )]
+
+            )],
+            Name{name : text}
         )],
     )
 }
+
+#[derive(Component)]
+pub struct Name {name : String}
 
 
 

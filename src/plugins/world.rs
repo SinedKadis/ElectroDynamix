@@ -1,10 +1,11 @@
+use crate::block::Blocks;
+use crate::plugins::config::Config;
 use bevy::color::palettes::basic::WHITE;
 use bevy::color::palettes::css::BLUE;
 use bevy::prelude::*;
-use bevy_vector_shapes::painter::ShapePainter;
 use bevy_vector_shapes::Shape2dPlugin;
+use bevy_vector_shapes::painter::ShapePainter;
 use bevy_vector_shapes::shapes::RectPainter;
-use crate::block::Blocks;
 
 pub struct WorldPlugin;
 
@@ -23,7 +24,9 @@ fn draw_grid(
     camera_query: Single<(&Camera, &GlobalTransform)>,
     window: Single<&Window>,
     mut gizmos: Gizmos,
+    config: Res<Config>
 ) {
+    if !config.draw_grid { return; }
     let (camera, camera_transform) = *camera_query;
 
     if let Some(cursor_position) = window.cursor_position()

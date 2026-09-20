@@ -3,7 +3,7 @@ mod block;
 mod plugins;
 
 use bevy::prelude::*;
-use plugins::{control, window, world};
+use plugins::{config, control, window, world};
 
 
 fn main() {
@@ -13,6 +13,7 @@ fn main() {
             control::ControlPlugin,
             window::WindowPlugin,
             world::WorldPlugin,
+            config::ConfigPlugin,
         ))
         .run();
 }
