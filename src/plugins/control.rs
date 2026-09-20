@@ -2,7 +2,6 @@ use crate::block::Blocks;
 use bevy::color::palettes::css::BLUE;
 use bevy::input::mouse::AccumulatedMouseScroll;
 use bevy::math::ops::powf;
-use bevy::reflect::list::List;
 use bevy::prelude::*;
 
 pub struct ControlPlugin;
@@ -44,35 +43,21 @@ fn controls(
         if let Some(cursor_position) = window.cursor_position()
             && let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position)
         {
-            let mut i : usize = 0;
+
             let x = &(world_pos.x.floor() as i32);
             let y = &(world_pos.y.floor() as i32);
-            let ys = &blocks.y;
-            for block_x in &blocks.x {
 
-                if &block_x == &x  {
-                    match ys.get(i) {
-                        Some(value) => {
-                            if value.reflect_partial_eq(y).unwrap_or(false) {
-                                return;
-                            }
-                        }
-                        None => {
-                            return;
-                        }
-                    }
-                }
-                i += 1;
+            if blocks.pos.contains(&(*x, *y)) {
+                return;
             }
 
 
-            blocks.x.push(((world_pos.x).floor()) as i32);
-            blocks.y.push(((world_pos.y).floor()) as i32);
+            blocks.pos.push((*x, *y));
             commands.spawn((
                 Mesh2d(meshes.add(Rectangle::new(1.0, 1.0))),
                 MeshMaterial2d(materials.add(Color::from(BLUE))),
-                Transform::from_xyz((world_pos.x).floor()+0.5,
-                                    (world_pos.y).floor()+0.5, 1.0)
+                Transform::from_xyz(*x as f32 + 0.5,
+                                    *y as f32 + 0.5, 1.0)
             ));
         }
 

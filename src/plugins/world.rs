@@ -7,7 +7,7 @@ pub struct WorldPlugin;
 impl Plugin for WorldPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(PostUpdate, draw_grid.after(TransformSystems::Propagate));
-            app.insert_resource(Blocks{x: Vec::new(), y: Vec::new()});
+            app.insert_resource(Blocks{ pos: Vec::new()});
     }
 }
 
