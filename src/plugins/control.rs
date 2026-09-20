@@ -38,12 +38,13 @@ fn controls(
             &Interaction,
         )
     >,
+    
 ) {
 
     let (camera, mut transform, mut projection,camera_transform)
         = camera_query.into_inner();
 
-    on_mouse_click(&mouse_button_input, &mut commands, meshes, materials, window, &mut blocks, &interaction_query, camera, camera_transform);
+    on_mouse_click(&mouse_button_input, &mut commands, meshes, materials, window, &mut blocks, &interaction_query, camera, camera_transform, );
 
     if mouse_button_input.just_pressed(MouseButton::Left) {
 
@@ -116,12 +117,12 @@ fn on_mouse_click(
 
 
             blocks.pos.push((*x, *y));
-            commands.spawn((
-                Mesh2d(meshes.add(Rectangle::new(1.0, 1.0))),
-                MeshMaterial2d(materials.add(Color::from(BLUE))),
-                Transform::from_xyz(*x as f32 + 0.5,
-                                    *y as f32 + 0.5, 1.0)
-            ));
+            // commands.spawn((
+            //     Mesh2d(meshes.add(Rectangle::new(1.0, 1.0))),
+            //     MeshMaterial2d(materials.add(Color::from(BLUE))),
+            //     Transform::from_xyz(*x as f32 + 0.5,
+            //                         *y as f32 + 0.5, 1.0)
+            // ));
         }
     }
 }

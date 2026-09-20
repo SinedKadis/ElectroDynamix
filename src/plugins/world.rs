@@ -1,5 +1,9 @@
 use bevy::color::palettes::basic::WHITE;
+use bevy::color::palettes::css::BLUE;
 use bevy::prelude::*;
+use bevy_vector_shapes::painter::ShapePainter;
+use bevy_vector_shapes::Shape2dPlugin;
+use bevy_vector_shapes::shapes::RectPainter;
 use crate::block::Blocks;
 
 pub struct WorldPlugin;
@@ -7,7 +11,9 @@ pub struct WorldPlugin;
 impl Plugin for WorldPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(PostUpdate, draw_grid.after(TransformSystems::Propagate));
-            app.insert_resource(Blocks{ pos: Vec::new()});
+        app.add_plugins(Shape2dPlugin::default());
+        app.insert_resource(Blocks{ pos: Vec::new()});
+        app.add_systems(Update, draw_blocks);
     }
 }
 
@@ -24,8 +30,15 @@ fn draw_grid(
         && let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position)
     {
         gizmos.grid_2d(world_pos.round(), UVec2::new(10, 10), Vec2::new(1., 1.), GRID_COLOR);
-        // gizmos.circle_2d(world_pos, 10., WHITE);
-        // // Should be the same as world_pos
-        // gizmos.circle_2d(world_check, 8., RED);
+    }
+}
+fn draw_blocks(mut painter: ShapePainter, blocks: Res<Blocks>) {
+    for pos in &blocks.pos {
+        painter.color = Color::from(BLUE);
+        painter.translate(Vec3::new(pos.0 as f32 + 0.5, pos.1 as f32 + 0.5, 1.0));
+
+        painter.rect(Vec2::splat(1.0));
+
+        painter.reset();
     }
 }
