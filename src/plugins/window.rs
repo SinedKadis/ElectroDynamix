@@ -55,13 +55,14 @@ fn setup(mut commands: Commands) {
             position_type: PositionType::Absolute,
             left: px(12.0),
             top: px(12.0),
-            flex_direction: FlexDirection::Row,
+            flex_direction: FlexDirection::Column,
             align_items: AlignItems::Center,
-            column_gap: px(6.0),
+            row_gap: px(3.0),
             ..default()
         },
         children![
-            button_bundle(String::from("Toggle grid"))
+            button_bundle(String::from("Toggle Grid")),
+            button_bundle(String::from("Toggle Arrows"))
         ],
     ));
 }
@@ -127,8 +128,10 @@ fn button_system(
                 *border_color = BorderColor::all(RED);
 
                 button.set_changed();
-                if name.name == "Toggle grid" {
+                if name.name == "Toggle Grid" {
                     config.draw_grid = !config.draw_grid;
+                }else if name.name == "Toggle Arrows" {
+                    config.draw_arrows = !config.draw_arrows;
                 } else if name.name == "Copper" {
                     selection.state = BlockState::Copper;
                 } else if name.name == "Electricity Right" {

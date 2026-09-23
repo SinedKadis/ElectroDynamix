@@ -36,24 +36,26 @@ fn draw_grid(
         gizmos.grid_2d(world_pos.round(), UVec2::new(10, 10), Vec2::new(1., 1.), GRID_COLOR);
     }
 }
-fn draw_blocks(mut painter: ShapePainter, blocks: Res<Blocks>, mut gizmos: Gizmos) {
+fn draw_blocks(mut painter: ShapePainter, blocks: Res<Blocks>, mut gizmos: Gizmos, config : Res<Config>) {
     for block_data in &blocks.block_data {
         let visual_y = block_data.1 as f32 + 0.5;
         let visual_x = block_data.0 as f32 + 0.5;
         painter.color = match block_data.2 {
             BlockState::Copper => {Color::from(ORANGE_RED)}
             BlockState::Electricity(dir) => {
-                gizmos.arrow_2d(match dir {
-                    Direction::Up => {Vec2::new(visual_x, visual_y-0.5)}
-                    Direction::Down => {Vec2::new(visual_x,visual_y+0.5)}
-                    Direction::Left => {Vec2::new(visual_x+0.5, visual_y)}
-                    Direction::Right => {Vec2::new(visual_x-0.5, visual_y)}
-                }, match dir {
-                    Direction::Up => {Vec2::new(visual_x, visual_y + 0.5)}
-                    Direction::Down => {Vec2::new(visual_x, visual_y - 0.5)}
-                    Direction::Left => {Vec2::new(visual_x - 0.5, visual_y)}
-                    Direction::Right => {Vec2::new(visual_x + 0.5, visual_y)}
-                }, WHITE);
+                if config.draw_arrows {
+                    gizmos.arrow_2d(match dir {
+                        Direction::Up => {Vec2::new(visual_x, visual_y-0.4)}
+                        Direction::Down => {Vec2::new(visual_x,visual_y+0.4)}
+                        Direction::Left => {Vec2::new(visual_x+0.4, visual_y)}
+                        Direction::Right => {Vec2::new(visual_x-0.4, visual_y)}
+                    }, match dir {
+                        Direction::Up => {Vec2::new(visual_x, visual_y + 0.4)}
+                        Direction::Down => {Vec2::new(visual_x, visual_y - 0.4)}
+                        Direction::Left => {Vec2::new(visual_x - 0.4, visual_y)}
+                        Direction::Right => {Vec2::new(visual_x + 0.4, visual_y)}
+                    }, WHITE);
+                }
                 Color::from(CYAN_700)
             }
         };
