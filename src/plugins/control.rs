@@ -94,31 +94,35 @@ fn on_mouse_click(
     camera_transform: &GlobalTransform,
     sel_state: Res<SelectedState>,
 ) {
-    if mouse_button_input.pressed(MouseButton::Left) {
-        // info!("left mouse currently pressed");
-        for interaction in interaction_query {
-            if interaction != (&Interaction::None,) {
-                return;
-            }
-        }
-        if let Some(cursor_position) = window.cursor_position()
-            && let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position)
-        {
-            let x = &(world_pos.x.floor() as i32);
-            let y = &(world_pos.y.floor() as i32);
+    if !mouse_button_input.pressed(MouseButton::Left) {
+        return;
+    }
 
-            if blocks.block_data.contains(&(*x, *y, sel_state.state)) {
-                return;
-            }
+    let is_interacting_with_ui = interaction_query
+        .iter()
+        .any(|(interaction,)| *interaction != Interaction::None);
+    if is_interacting_with_ui {
+        return;
+    }
 
+    let Some(cursor_position) = window.cursor_position() else {
+        return;
+    };
 
-            blocks.block_data.push((*x, *y, sel_state.state));
-            // commands.spawn((
-            //     Mesh2d(meshes.add(Rectangle::new(1.0, 1.0))),
-            //     MeshMaterial2d(materials.add(Color::from(BLUE))),
-            //     Transform::from_xyz(*x as f32 + 0.5,
-            //                         *y as f32 + 0.5, 1.0)
-            // ));
-        }
+    let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position) else {
+        return;
+    };
+
+    let x = world_pos.x.floor() as i32;
+    let y = world_pos.y.floor() as i32;
+
+    if let Some(existing_block) = blocks
+        .block_data
+        .iter_mut()
+        .find(|(bx, by, _)| *bx == x && *by == y)
+    {
+        existing_block.2 = sel_state.state;
+    } else {
+        blocks.block_data.push((x, y, sel_state.state));
     }
 }
