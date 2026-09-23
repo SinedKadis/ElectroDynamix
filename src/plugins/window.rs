@@ -2,7 +2,6 @@ use crate::plugins::config::Config;
 use bevy::color::palettes::css::RED;
 use bevy::input_focus::{FocusCause, InputFocus};
 use bevy::{
-    camera::Viewport,
     color::palettes::
     css::GREEN,
     prelude::*,
@@ -15,7 +14,6 @@ impl Plugin for WindowPlugin {
         app.init_resource::<InputFocus>();
         app.add_systems(Startup, setup);
         app.add_systems(PostStartup, setup_camera);
-        app.add_systems(FixedUpdate, fix_viewpoint);
         app.add_systems(Update,button_system);
     }
 }
@@ -35,11 +33,6 @@ fn setup(
     commands.spawn((
         Camera2d,
         Camera {
-            viewport: Some(Viewport {
-                physical_position: (Vec2::ZERO).as_uvec2(),
-                physical_size: window.resolution.physical_size(),
-                ..default()
-            }),
             ..default()
         },
     ));
@@ -85,18 +78,6 @@ fn setup_camera(camera_query: Single<(&mut Camera, &mut Transform, &mut Projecti
     }
 }
 
-fn fix_viewpoint(camera_query: Single<(&mut Camera, &Transform, &Projection)>,
-                 window: Single<&Window>,){
-    let (mut camera, _transform, _projection) = camera_query.into_inner();
-
-    let window_size = window.resolution.physical_size();
-    if let Some(viewport) = camera.viewport.as_mut() {
-        // Reset viewport size on window resize
-        if viewport.physical_size.x != window_size.x || viewport.physical_size.y != window_size.y {
-            viewport.physical_size = window_size;
-        }
-    }
-}
 
 
 
