@@ -1,11 +1,9 @@
+use crate::block::{BlockState, Direction, SelectedState};
 use crate::plugins::config::Config;
 use bevy::color::palettes::css::RED;
 use bevy::input_focus::{FocusCause, InputFocus};
-use bevy::{
-    color::palettes::
-    css::GREEN,
-    prelude::*,
-};
+use bevy::
+prelude::*;
 
 pub struct WindowPlugin;
 
@@ -14,72 +12,93 @@ impl Plugin for WindowPlugin {
         app.init_resource::<InputFocus>();
         app.add_systems(Startup, setup);
         app.add_systems(PostStartup, setup_camera);
-        app.add_systems(Update,button_system);
+        app.add_systems(Update, button_system);
     }
 }
 
 const BACKGROUND_COLOR: Color = Color::linear_rgb(0.01, 0.01, 0.01);
 const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
-const PRESSED_BUTTON: Color = Color::srgb(0.0,0.0,0.0);
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    window: Single<&Window>,
-) {
+const PRESSED_BUTTON: Color = Color::srgb(0.0, 0.0, 0.0);
 
-    // Initialize centered, non-window-filling viewport
+fn setup(mut commands: Commands) {
+    // 1. Camera
     commands.spawn((
         Camera2d,
         Camera {
+            clear_color: ClearColorConfig::Custom(BACKGROUND_COLOR),
             ..default()
         },
     ));
 
-    // Create a minimal UI explaining how to interact with the example
-    // commands.spawn((
-    //     Text::new(
-    //         "Use the mouse wheel to zoom in and out.\n\
-    //               Use the WASD keys to move the camera.",
-    //     ),
-    //     Node {
-    //         position_type: PositionType::Absolute,
-    //         top: px(12),
-    //         left: px(12),
-    //         ..default()
-    //     },
-    // ));
-
-    // Add mesh to make camera movement visible
+    // 2. Toolbar anchored to bottom-left in a horizontal row
     commands.spawn((
-        Mesh2d(meshes.add(Rectangle::new(40.0, 20.0))),
-        MeshMaterial2d(materials.add(Color::from(GREEN))),
+        Node {
+            position_type: PositionType::Absolute,
+            left: px(12.0),
+            bottom: px(12.0),
+            flex_direction: FlexDirection::Row,
+            align_items: AlignItems::Center,
+            column_gap: px(6.0),
+            ..default()
+        },
+        children![
+            button_bundle(String::from("Copper")),
+            button_bundle(String::from("Electricity Right")),
+            button_bundle(String::from("Electricity Left")),
+            button_bundle(String::from("Electricity Up")),
+            button_bundle(String::from("Electricity Down")),
+        ],
     ));
-
-    // Add background to visualize viewport bounds
     commands.spawn((
-        Mesh2d(meshes.add(Rectangle::new(50000.0, 50000.0))),
-        MeshMaterial2d(materials.add(BACKGROUND_COLOR)),
-        Transform::from_translation(Vec3::new(0.0, 0.0, -200.0)),
+        Node {
+            position_type: PositionType::Absolute,
+            left: px(12.0),
+            top: px(12.0),
+            flex_direction: FlexDirection::Row,
+            align_items: AlignItems::Center,
+            column_gap: px(6.0),
+            ..default()
+        },
+        children![
+            button_bundle(String::from("Toggle grid"))
+        ],
     ));
-
-
-    commands.spawn(
-        button(String::from("Toggle grid"))
-    );
 }
 
-fn setup_camera(camera_query: Single<(&mut Camera, &mut Transform, &mut Projection)>){
-    let ( _camera, _transform, mut projection) = camera_query.into_inner();
+fn setup_camera(camera_query: Single<(&mut Camera, &mut Transform, &mut Projection)>) {
+    let (_camera, _transform, mut projection) = camera_query.into_inner();
 
     if let Projection::Orthographic(projection2d) = &mut *projection {
         projection2d.scale = 0.1;
     }
 }
 
-
-
+fn button_bundle(text: String) -> impl Bundle {
+    (
+        Button,
+        Node {
+            padding: UiRect::axes(px(10.0), px(6.0)),
+            border: UiRect::all(px(2.0)),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            border_radius: BorderRadius::all(px(6.0)),
+            ..default()
+        },
+        BorderColor::all(Color::WHITE),
+        BackgroundColor(NORMAL_BUTTON),
+        children![(
+            Text::new(&text),
+            TextFont {
+                font_size: FontSize::Px(13.0),
+                ..default()
+            },
+            TextColor(Color::srgb(0.9, 0.9, 0.9)),
+            TextShadow::default(),
+        )],
+        Name { name: text },
+    )
+}
 
 fn button_system(
     mut input_focus: ResMut<InputFocus>,
@@ -91,31 +110,35 @@ fn button_system(
             &mut BorderColor,
             &mut Button,
             &Children,
-            &Name
+            &Name,
         ),
         Changed<Interaction>,
     >,
-    mut config : ResMut<Config>,
+    mut config: ResMut<Config>,
+    mut selection: ResMut<SelectedState>,
 ) {
-    for (entity,
-        interaction,
-        mut color,
-        mut border_color,
-        mut button,
-        _children,
-        name) in &mut interaction_query
+    for (entity, interaction, mut color, mut border_color, mut button, _children, name) in
+        &mut interaction_query
     {
-
         match *interaction {
             Interaction::Pressed => {
                 input_focus.set(entity, FocusCause::Pressed);
                 *color = PRESSED_BUTTON.into();
                 *border_color = BorderColor::all(RED);
 
-
                 button.set_changed();
                 if name.name == "Toggle grid" {
                     config.draw_grid = !config.draw_grid;
+                } else if name.name == "Copper" {
+                    selection.state = BlockState::Copper;
+                } else if name.name == "Electricity Right" {
+                    selection.state = BlockState::Electricity(Direction::Right);
+                } else if name.name == "Electricity Left" {
+                    selection.state = BlockState::Electricity(Direction::Left);
+                } else if name.name == "Electricity Up" {
+                    selection.state = BlockState::Electricity(Direction::Up);
+                } else if name.name == "Electricity Down" {
+                    selection.state = BlockState::Electricity(Direction::Down);
                 }
             }
             Interaction::Hovered => {
@@ -133,49 +156,7 @@ fn button_system(
     }
 }
 
-fn button(text : String) -> impl Bundle {
-    (
-        Node {
-            width: percent(100),
-            height: percent(100),
-            top: vh(10.0),
-            left: vw(1.0),
-            align_items: AlignItems::DEFAULT,
-            justify_content: JustifyContent::SpaceBetween,
-            ..default()
-        },
-        children![(
-            Button,
-            Node {
-                width: vmin(24),
-                height: vmin(6),
-                border: UiRect::all(px(5)),
-                // horizontally center child text
-                justify_content: JustifyContent::Center,
-                // vertically center child text
-                align_items: AlignItems::Center,
-                border_radius: BorderRadius::MAX,
-                ..default()
-            },
-            BorderColor::all(Color::WHITE),
-            BackgroundColor(Color::BLACK),
-            children![(
-                Text::new(&text),
-                TextFont {
-                    font_size: FontSize::VMin(3.0),
-                    ..default()
-                },
-                TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                TextShadow::default(),
-
-            )],
-            Name{name : text}
-        )],
-    )
-}
-
 #[derive(Component)]
-pub struct Name {name : String}
-
-
-
+pub struct Name {
+    name: String,
+}

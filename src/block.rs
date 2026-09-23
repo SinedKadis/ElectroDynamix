@@ -9,7 +9,6 @@ pub struct Blocks{
 pub enum BlockState{
     Copper,
     Electricity(Direction),
-    Source
 }
 #[derive(Clone,Copy,PartialEq,Eq)]
 pub enum Direction{
