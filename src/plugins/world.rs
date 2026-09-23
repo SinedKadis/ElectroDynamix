@@ -1,7 +1,8 @@
-use crate::block::Blocks;
+use crate::block::{BlockState, Blocks};
 use crate::plugins::config::Config;
 use bevy::color::palettes::basic::WHITE;
-use bevy::color::palettes::css::BLUE;
+use bevy::color::palettes::css::{ORANGE_RED};
+use bevy::color::palettes::tailwind::{CYAN_700, GREEN_600};
 use bevy::prelude::*;
 use bevy_vector_shapes::Shape2dPlugin;
 use bevy_vector_shapes::painter::ShapePainter;
@@ -13,7 +14,7 @@ impl Plugin for WorldPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(PostUpdate, draw_grid.after(TransformSystems::Propagate));
         app.add_plugins(Shape2dPlugin::default());
-        app.insert_resource(Blocks{ pos: Vec::new()});
+        app.insert_resource(Blocks{ block_data: Vec::new()});
         app.add_systems(Update, draw_blocks);
     }
 }
@@ -36,9 +37,13 @@ fn draw_grid(
     }
 }
 fn draw_blocks(mut painter: ShapePainter, blocks: Res<Blocks>) {
-    for pos in &blocks.pos {
-        painter.color = Color::from(BLUE);
-        painter.translate(Vec3::new(pos.0 as f32 + 0.5, pos.1 as f32 + 0.5, 1.0));
+    for block_data in &blocks.block_data {
+        painter.color = match block_data.2 {
+            BlockState::Copper => {Color::from(ORANGE_RED)}
+            BlockState::Electricity(_) => {Color::from(CYAN_700)}
+            BlockState::Source => {Color::from(GREEN_600)}
+        };
+        painter.translate(Vec3::new(block_data.0 as f32 + 0.5, block_data.1 as f32 + 0.5, 1.0));
 
         painter.rect(Vec2::splat(1.0));
 

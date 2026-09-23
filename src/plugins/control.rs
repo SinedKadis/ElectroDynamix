@@ -1,4 +1,4 @@
-use crate::block::Blocks;
+use crate::block::{BlockState, Blocks, SelectedState};
 use bevy::input::mouse::AccumulatedMouseScroll;
 use bevy::math::ops::powf;
 use bevy::prelude::*;
@@ -9,6 +9,7 @@ impl Plugin for ControlPlugin {
     fn build(&self, app: &mut App) {
         // app.add_systems(Startup, setup);
         app.add_systems(FixedUpdate, controls);
+        app.insert_resource(SelectedState{ state: BlockState::Copper });
 
     }
 }
@@ -29,6 +30,7 @@ fn controls(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     window: Single<&Window>,
     mut blocks: ResMut<Blocks>,
+    sel_state: Res<SelectedState>,
     interaction_query: Query<
         (
             &Interaction,
@@ -40,7 +42,7 @@ fn controls(
     let (camera, mut transform, mut projection,camera_transform)
         = camera_query.into_inner();
 
-    on_mouse_click(&mouse_button_input, window, &mut blocks, &interaction_query, camera, camera_transform, );
+    on_mouse_click(&mouse_button_input, window, &mut blocks, &interaction_query, camera, camera_transform, sel_state);
 
     if mouse_button_input.just_pressed(MouseButton::Left) {
 
@@ -89,7 +91,8 @@ fn on_mouse_click(
     blocks: &mut ResMut<Blocks>,
     interaction_query: &Query<(&Interaction,)>,
     camera: &Camera,
-    camera_transform: &GlobalTransform
+    camera_transform: &GlobalTransform,
+    sel_state: Res<SelectedState>,
 ) {
     if mouse_button_input.pressed(MouseButton::Left) {
         // info!("left mouse currently pressed");
@@ -104,12 +107,12 @@ fn on_mouse_click(
             let x = &(world_pos.x.floor() as i32);
             let y = &(world_pos.y.floor() as i32);
 
-            if blocks.pos.contains(&(*x, *y)) {
+            if blocks.block_data.contains(&(*x, *y, sel_state.state)) {
                 return;
             }
 
 
-            blocks.pos.push((*x, *y));
+            blocks.block_data.push((*x, *y, sel_state.state));
             // commands.spawn((
             //     Mesh2d(meshes.add(Rectangle::new(1.0, 1.0))),
             //     MeshMaterial2d(materials.add(Color::from(BLUE))),
