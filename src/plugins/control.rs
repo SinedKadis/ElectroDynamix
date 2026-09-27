@@ -219,11 +219,15 @@ fn start_game(mut game_state: ResMut<GameState>,
         return;
     }
 
-    let min_x = blocks.block_data.iter().map(|(x,_,_)| x).min().unwrap();
-    let min_y = blocks.block_data.iter().map(|(_,y,_)| y).min().unwrap();
+    let min_x = blocks.block_data.iter()
+        .filter(|(_,_,state)| *state != BlockState::Empty).map(|(x,_,_)| x).min().unwrap();
+    let min_y = blocks.block_data.iter()
+        .filter(|(_,_,state)| *state != BlockState::Empty).map(|(_,y,_)| y).min().unwrap();
 
-    let max_x = blocks.block_data.iter().map(|(x,_,_)| x).max().unwrap();
-    let max_y = blocks.block_data.iter().map(|(_,y,_)| y).max().unwrap();
+    let max_x = blocks.block_data.iter()
+        .filter(|(_,_,state)| *state != BlockState::Empty).map(|(x,_,_)| x).max().unwrap();
+    let max_y = blocks.block_data.iter()
+        .filter(|(_,_,state)| *state != BlockState::Empty).map(|(_,y,_)| y).max().unwrap();
 
 
     let width = (max_x - min_x + 1) as usize;
@@ -232,6 +236,7 @@ fn start_game(mut game_state: ResMut<GameState>,
     let mut game_map = world::GameMap::new(width, height, *min_x, *min_y);
 
     for (x, y, state) in &blocks.block_data {
+        if *state == BlockState::Empty { continue; }
         game_map.set(*x, *y, state.clone());
     }
 
