@@ -303,7 +303,7 @@ impl GameMap {
 }
 
 #[derive(Resource)]
-struct UpdateTimer(Timer);
+pub(crate) struct UpdateTimer(pub(crate) Timer);
 
 fn update_blocks(mut game_state: ResMut<GameState>,
     mut timer: ResMut<UpdateTimer>,

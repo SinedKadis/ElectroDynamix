@@ -1,12 +1,14 @@
 use crate::plugins::config::Config;
-use crate::plugins::window::{ButtonData, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
-use crate::plugins::world::{BlockState, Blocks, Direction, GameState, GameStates, SelectedState};
+use crate::plugins::window::{CustomUiData, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
+use crate::plugins::world;
+use crate::plugins::world::{BlockState, Blocks, Direction, GameState, GameStates, SelectedState, UpdateTimer};
 use bevy::color::palettes::basic::RED;
 use bevy::input::mouse::AccumulatedMouseScroll;
 use bevy::input_focus::{FocusCause, InputFocus};
 use bevy::math::ops::powf;
 use bevy::prelude::*;
-use crate::plugins::world;
+use bevy::ui_widgets::SliderValue;
+use std::time::Duration;
 
 pub struct ControlPlugin;
 
@@ -15,7 +17,7 @@ impl Plugin for ControlPlugin {
         // app.add_systems(Startup, setup);
         app.add_systems(FixedUpdate, (controls,start_game));
         app.insert_resource(SelectedState{ state: BlockState::Copper });
-        app.add_systems(Update, (update_button_visibility, button_system));
+        app.add_systems(Update, (button_system,slider_system));
     }
 }
 
@@ -138,32 +140,12 @@ fn on_mouse_click(
     }
 }
 
-fn update_button_visibility(
-    game_state: Res<GameState>,
-    mut buttons: Query<(&ButtonData, &mut Visibility, &mut Node)>,
-) {
-    if !game_state.is_changed() {
-        return;
-    }
 
-    for (button_data, mut visibility, mut node) in &mut buttons {
-        let should_show = match (&game_state.state, button_data.name.as_str()) {
-            (GameStates::Drawing, "Compile") => true,
-            (GameStates::Executing(_), "Terminate" | "Pause") => true,
-            (GameStates::Paused(_), "Terminate" | "Resume") => true,
-            (_,"Compile" |"Terminate" | "Pause" | "Resume") => false,
-            _ => true,
-        };
-
-        *visibility = if should_show { Visibility::Visible } else { Visibility::Hidden };
-        node.display = if should_show { Display::Flex } else { Display::None };
-    }
-}
 
 fn button_system(
     mut input_focus: ResMut<InputFocus>,
     mut interaction_query: Query<
-    (Entity, &Interaction, &mut BackgroundColor, &mut BorderColor, &mut Button, &ButtonData),
+    (Entity, &Interaction, &mut BackgroundColor, &mut BorderColor, &mut Button, &CustomUiData),
     Changed<Interaction>,
     >,
     mut config: ResMut<Config>,
@@ -217,9 +199,25 @@ fn button_system(
     }
 }
 
+fn slider_system(
+    mut update_timer: ResMut<UpdateTimer>,
+    changed_sliders: Query<&SliderValue, Changed<SliderValue>>,
+) {
+    for slider_value in &changed_sliders {
+        update_timer.0.set_duration(Duration::from_secs_f32(
+            1.0 / (slider_value.0 + 1.0).powi(10)
+        ));
+    }
+}
+
 fn start_game(mut game_state: ResMut<GameState>,
         blocks: Res<Blocks>) {
     if game_state.state != GameStates::Compiling { return; }
+
+    if blocks.block_data.is_empty() {
+        game_state.state = GameStates::Drawing;
+        return;
+    }
 
     let min_x = blocks.block_data.iter().map(|(x,_,_)| x).min().unwrap();
     let min_y = blocks.block_data.iter().map(|(_,y,_)| y).min().unwrap();
