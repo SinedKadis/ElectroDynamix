@@ -1,4 +1,3 @@
-use crate::plugins::control;
 use bevy::input_focus::InputFocus;
 use bevy::
 prelude::*;
@@ -28,7 +27,7 @@ fn setup(mut commands: Commands) {
         },
     ));
 
-    // 2. Toolbar anchored to bottom-left in a horizontal row
+    // 2. Toolbar anchored to the bottom-left in a horizontal row
     commands.spawn((
         Node {
             position_type: PositionType::Absolute,
@@ -40,6 +39,7 @@ fn setup(mut commands: Commands) {
             ..default()
         },
         children![
+            button_bundle(String::from("Rubber")),
             button_bundle(String::from("Copper")),
             button_bundle(String::from("Electricity Right")),
             button_bundle(String::from("Electricity Left")),

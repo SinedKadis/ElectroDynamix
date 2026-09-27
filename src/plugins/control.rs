@@ -188,6 +188,7 @@ pub fn button_system(
                         game_state.state = GameStates::Drawing;
                         button_data.name = String::from("Compile");
                     }
+                    "Rubber" => {selection.state = BlockState::Empty}
                     _ => {}
                 }
                 button.set_changed();
