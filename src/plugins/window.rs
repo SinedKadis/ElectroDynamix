@@ -75,6 +75,9 @@ fn setup(mut commands: Commands) {
         },
         children![
             button_bundle(String::from("Compile")),
+            button_bundle(String::from("Terminate")),
+            button_bundle(String::from("Pause")),
+            button_bundle(String::from("Resume")),
         ],
     ));
 }
@@ -113,7 +116,8 @@ fn button_bundle(text: String) -> impl Bundle {
             TextColor(Color::srgb(0.9, 0.9, 0.9)),
             TextShadow::default(),
         )],
-        ButtonData { name: text}
+        ButtonData { name: text},
+        Visibility::Visible
     )
 }
 

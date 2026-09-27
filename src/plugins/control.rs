@@ -15,8 +15,7 @@ impl Plugin for ControlPlugin {
         // app.add_systems(Startup, setup);
         app.add_systems(FixedUpdate, (controls,start_game));
         app.insert_resource(SelectedState{ state: BlockState::Copper });
-        app.add_systems(Update, button_system);
-
+        app.add_systems(Update, (update_button_visibility, button_system));
     }
 }
 
@@ -139,61 +138,69 @@ fn on_mouse_click(
     }
 }
 
-pub fn button_system(
+fn update_button_visibility(
+    game_state: Res<GameState>,
+    mut buttons: Query<(&ButtonData, &mut Visibility, &mut Node)>,
+) {
+    if !game_state.is_changed() {
+        return;
+    }
+
+    for (button_data, mut visibility, mut node) in &mut buttons {
+        let should_show = match (&game_state.state, button_data.name.as_str()) {
+            (GameStates::Drawing, "Compile") => true,
+            (GameStates::Executing(_), "Terminate" | "Pause") => true,
+            (GameStates::Paused(_), "Terminate" | "Resume") => true,
+            (_,"Compile" |"Terminate" | "Pause" | "Resume") => false,
+            _ => true,
+        };
+
+        *visibility = if should_show { Visibility::Visible } else { Visibility::Hidden };
+        node.display = if should_show { Display::Flex } else { Display::None };
+    }
+}
+
+fn button_system(
     mut input_focus: ResMut<InputFocus>,
     mut interaction_query: Query<
-        (
-            Entity,
-            &Interaction,
-            &mut BackgroundColor,
-            &mut BorderColor,
-            &mut Button,
-            &Children,
-            &mut ButtonData,
-        ),
-        Changed<Interaction>,
+    (Entity, &Interaction, &mut BackgroundColor, &mut BorderColor, &mut Button, &ButtonData),
+    Changed<Interaction>,
     >,
     mut config: ResMut<Config>,
     mut selection: ResMut<SelectedState>,
-    mut game_state: ResMut<GameState>
+    mut game_state: ResMut<GameState>,
 ) {
-    for (entity, interaction,
-        mut color,
-        mut border_color,
-        mut button,
-        _children,
-        mut button_data) in
-        &mut interaction_query
-    {
+    for (entity, interaction, mut color, mut border_color, mut button, button_data) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
                 input_focus.set(entity, FocusCause::Pressed);
                 *color = PRESSED_BUTTON.into();
                 *border_color = BorderColor::all(RED);
 
-
                 match button_data.name.as_str() {
-                    "Toggle Grid" => {config.draw_grid = !config.draw_grid}
-                    "Toggle Arrows" => {config.draw_arrows = !config.draw_arrows}
-                    "Copper" => {selection.state = BlockState::Copper}
-                    "Electricity Right" => {selection.state = BlockState::Electricity(Direction::Right)}
-                    "Electricity Left" => {selection.state = BlockState::Electricity(Direction::Left)}
-                    "Electricity Up" => {selection.state = BlockState::Electricity(Direction::Up)}
-                    "Electricity Down" => {selection.state = BlockState::Electricity(Direction::Down)}
-                    "Compile" => {
-                        game_state.state = GameStates::Compiling;
-                        button_data.name = String::from("Terminate");
+                    "Toggle Grid" => config.draw_grid = !config.draw_grid,
+                    "Toggle Arrows" => config.draw_arrows = !config.draw_arrows,
+                    "Rubber" => selection.state = BlockState::Empty,
+                    "Copper" => selection.state = BlockState::Copper,
+                    "Electricity Right" => selection.state = BlockState::Electricity(Direction::Right),
+                    "Electricity Left" => selection.state = BlockState::Electricity(Direction::Left),
+                    "Electricity Up" => selection.state = BlockState::Electricity(Direction::Up),
+                    "Electricity Down" => selection.state = BlockState::Electricity(Direction::Down),
+                    "Compile" => game_state.state = GameStates::Compiling,
+                    "Terminate" => game_state.state = GameStates::Drawing,
+                    "Pause" => {
+                        if let GameStates::Executing(game_map) = &game_state.state {
+                            game_state.state = GameStates::Paused(game_map.clone());
+                        }
                     }
-                    "Terminate" => {
-                        game_state.state = GameStates::Drawing;
-                        button_data.name = String::from("Compile");
+                    "Resume" => {
+                        if let GameStates::Paused(game_map) = &game_state.state {
+                            game_state.state = GameStates::Executing(game_map.clone());
+                        }
                     }
-                    "Rubber" => {selection.state = BlockState::Empty}
                     _ => {}
                 }
                 button.set_changed();
-
-
             }
             Interaction::Hovered => {
                 input_focus.set(entity, FocusCause::Pressed);
