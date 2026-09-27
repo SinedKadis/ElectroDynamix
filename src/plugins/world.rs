@@ -135,7 +135,7 @@ impl ComputableState for BlockState{
                     let idx = Direction::DIRECTIONS.iter().position(|d| *d == direction.opposite());
                     if idx.is_none() { continue }
                     if let BlockState::Electricity(elect_dirs) = surround_states[idx.unwrap()] {
-                        if elect_dirs.contains(&direction) {
+                        if !elect_dirs.contains(&direction.opposite()) {
                             new_dir[i] = *direction;
                         }
                     }
