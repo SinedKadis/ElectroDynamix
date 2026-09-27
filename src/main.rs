@@ -1,5 +1,4 @@
 
-mod block;
 mod plugins;
 
 use bevy::prelude::*;
