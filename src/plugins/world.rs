@@ -52,21 +52,18 @@ fn draw_blocks(mut painter: ShapePainter,
                     BlockState::Copper => {Color::from(ORANGE_RED)}
                     BlockState::Electricity(dir) => {
                         if config.draw_arrows {
-                            gizmos.arrow_2d(match dir {
-                                Direction::Up => {Vec2::new(visual_x, visual_y-0.4)}
-                                Direction::Down => {Vec2::new(visual_x,visual_y+0.4)}
-                                Direction::Left => {Vec2::new(visual_x+0.4, visual_y)}
-                                Direction::Right => {Vec2::new(visual_x-0.4, visual_y)}
-                            }, match dir {
-                                Direction::Up => {Vec2::new(visual_x, visual_y + 0.4)}
-                                Direction::Down => {Vec2::new(visual_x, visual_y - 0.4)}
-                                Direction::Left => {Vec2::new(visual_x - 0.4, visual_y)}
-                                Direction::Right => {Vec2::new(visual_x + 0.4, visual_y)}
-                            }, WHITE);
+                            for direction in dir {
+                                let dir_vec = direction.opposite().to_vector();
+                                gizmos.arrow_2d(
+                                    Vec2::new(dir_vec.0 as f32 + visual_x, dir_vec.1 as f32 + visual_y),
+                                    Vec2::new(visual_x, visual_y),
+                                    WHITE
+                                );
+                            }
                         }
                         Color::from(CYAN_700)
                     }
-                    _ => {continue}
+                    BlockState::Empty => {continue}
                 };
                 painter.translate(Vec3::new(visual_x, visual_y, 1.0));
 
@@ -97,7 +94,7 @@ pub enum BlockState{
     #[default]
     Empty,
     Copper,
-    Electricity(Direction),
+    Electricity([Direction;4])
 }
 
 #[derive(Clone,Copy,PartialEq,Eq)]
@@ -105,7 +102,75 @@ pub enum Direction {
     Up,
     Down,
     Left,
-    Right
+    Right,
+    None
+}
+
+trait ComputableState{
+    ///surround dirs: left, right, up, down
+    fn compute(&self, surround_states: [&BlockState;4]) -> BlockState;
+}
+
+impl ComputableState for BlockState{
+    fn compute(&self, surround_states: [&BlockState;4]) -> BlockState {
+        match self {
+            BlockState::Copper => {
+                let mut new_dir: [Direction;4] = [Direction::None;4];
+                for (i, surround_state) in surround_states.iter().enumerate() {
+                    if let BlockState::Electricity(elect_dirs) = surround_state {
+                        let dir = Direction::DIRECTIONS[i];
+                        if !elect_dirs.contains(&dir) {
+                            new_dir[i] = dir.opposite();
+                        }
+                    }
+                }
+                if new_dir.iter().any(|dir| dir != &Direction::None) {
+                    return  BlockState::Electricity(new_dir)
+                }
+                BlockState::Copper
+            }
+            BlockState::Electricity(directions) => {
+                let mut new_dir: [Direction;4] = [Direction::None;4];
+                for (i, direction) in directions.iter().enumerate() {
+                    let idx = Direction::DIRECTIONS.iter().position(|d| *d == direction.opposite());
+                    if idx.is_none() { continue }
+                    if let BlockState::Electricity(elect_dirs) = surround_states[idx.unwrap()] {
+                        if elect_dirs.contains(&direction) {
+                            new_dir[i] = *direction;
+                        }
+                    }
+                }
+                if new_dir.iter().any(|dir| dir != &Direction::None) {
+                    return  BlockState::Electricity(new_dir)
+                }
+                BlockState::Copper
+            }
+            _ => {*self}
+        }
+    }
+}
+
+impl Direction {
+    pub const DIRECTIONS: [Direction;4] = [Direction::Left, Direction::Right, Direction::Up, Direction::Down];
+    pub fn opposite(&self) -> Direction {
+        match self {
+            Direction::Left => Direction::Right,
+            Direction::Right => Direction::Left,
+            Direction::Up => Direction::Down,
+            Direction::Down => Direction::Up,
+            _ => {*self}
+        }
+    }
+
+    pub fn to_vector(&self) -> (i32,i32) {
+        match self {
+            Direction::Left => (-1,0),
+            Direction::Right => (1,0),
+            Direction::Up => (0,1),
+            Direction::Down => (0,-1),
+            _ => (0,0)
+        }
+    }
 }
 
 #[derive(Resource)]
@@ -153,10 +218,6 @@ impl GameMap {
         gy * self.width + gx
     }
 
-    fn get(&self, x: i32, y: i32) -> &BlockState {
-        &self.cells[self.index(x, y)]
-    }
-
     pub(crate) fn set(&mut self, x: i32, y: i32, state: BlockState) {
         let idx = self.index(x, y);
         self.cells[idx] = state;
@@ -176,21 +237,14 @@ impl GameMap {
                     BlockState::Copper => Color::from(ORANGE_RED),
                     BlockState::Electricity(dir) => {
                         if *draw_arrows {
-                            gizmos.arrow_2d(
-                                match dir {
-                                    Direction::Up => Vec2::new(visual_x, visual_y - 0.4),
-                                    Direction::Down => Vec2::new(visual_x, visual_y + 0.4),
-                                    Direction::Left => Vec2::new(visual_x + 0.4, visual_y),
-                                    Direction::Right => Vec2::new(visual_x - 0.4, visual_y),
-                                },
-                                match dir {
-                                    Direction::Up => Vec2::new(visual_x, visual_y + 0.4),
-                                    Direction::Down => Vec2::new(visual_x, visual_y - 0.4),
-                                    Direction::Left => Vec2::new(visual_x - 0.4, visual_y),
-                                    Direction::Right => Vec2::new(visual_x + 0.4, visual_y),
-                                },
-                                WHITE,
-                            );
+                            for direction in dir {
+                                let dir_vec = direction.opposite().to_vector();
+                                gizmos.arrow_2d(
+                                    Vec2::new(dir_vec.0 as f32 + visual_x, dir_vec.1 as f32 + visual_y),
+                                    Vec2::new(visual_x, visual_y),
+                                    WHITE
+                                );
+                            }
                         }
                         Color::from(CYAN_700)
                     }
@@ -204,7 +258,10 @@ impl GameMap {
         }
     }
 
-    fn get_cell(&self, x: i32, y: i32) -> Option<&BlockState> {
+    fn get_cell(&self, xy: (usize,  usize),offset: (i32, i32)) -> Option<&BlockState> {
+        let x = xy.0 as i32 + offset.0;
+        let y = xy.1 as i32 + offset.1;
+
         if x < 0 || y < 0 {
             return None;
         }
@@ -220,84 +277,16 @@ impl GameMap {
         for y in 0..self.height {
             for x in 0..self.width {
                 let state = &self.cells[y * self.width + x];
-                match state {
-                    BlockState::Empty => {
-                        continue;
-                    }
-                    BlockState::Copper => {
-                        if let Some(left_cell) = self.get_cell(x as i32 - 1, y as i32) {
-                            if left_cell != &BlockState::Electricity(Direction::Left) && matches!(left_cell, BlockState::Electricity(_)) {
-                                new_game_map.cells[y * self.width + x] = BlockState::Electricity(Direction::Right);
-                                continue
-                            }
-                        }
-
-                        if let Some(right_cell) = self.get_cell(x as i32 + 1, y as i32) {
-                            if right_cell != &BlockState::Electricity(Direction::Right) && matches!(right_cell, BlockState::Electricity(_)) {
-                                new_game_map.cells[y * self.width + x] = BlockState::Electricity(Direction::Left);
-                                continue
-                            }
-                        }
-
-                        if let Some(up_cell) = self.get_cell(x as i32, y as i32 + 1) {
-                            if up_cell != &BlockState::Electricity(Direction::Up) && matches!(up_cell, BlockState::Electricity(_)) {
-                                new_game_map.cells[y * self.width + x] = BlockState::Electricity(Direction::Down);
-                                continue
-                            }
-                        }
-
-                        if let Some(down_cell) = self.get_cell(x as i32, y as i32 - 1) {
-                            if down_cell != &BlockState::Electricity(Direction::Down) && matches!(down_cell, BlockState::Electricity(_)) {
-                                new_game_map.cells[y * self.width + x] = BlockState::Electricity(Direction::Up);
-                                continue
-                            }
-                        }
-                    }
-                    BlockState::Electricity(direction) => {
-                        match direction {
-                            Direction::Up => {
-                                if let Some(down_cell) = self.get_cell(x as i32, y as i32 - 1) {
-                                    if matches!(down_cell, BlockState::Electricity(Direction::Down))
-                                        || !matches!(down_cell, BlockState::Electricity(_)) {
-                                        new_game_map.cells[y * self.width + x] = BlockState::Copper;
-                                        continue
-                                    }
-                                }
-                            }
-                            Direction::Down => {
-                                if let Some(up_cell) = self.get_cell(x as i32, y as i32 + 1) {
-                                    if matches!(up_cell, BlockState::Electricity(Direction::Up))
-                                        || !matches!(up_cell, BlockState::Electricity(_)) {
-                                        new_game_map.cells[y * self.width + x] = BlockState::Copper;
-                                        continue
-                                    }
-                                }
-                            }
-                            Direction::Left => {
-                                if let Some(right_cell) = self.get_cell(x as i32 + 1, y as i32) {
-                                    if matches!(right_cell, BlockState::Electricity(Direction::Right))
-                                        || !matches!(right_cell, BlockState::Electricity(_)) {
-                                        new_game_map.cells[y * self.width + x] = BlockState::Copper;
-                                        continue
-                                    }
-                                }
-                            }
-                            Direction::Right => {
-                                if let Some(left_cell) = self.get_cell(x as i32 - 1, y as i32) {
-                                    if matches!(left_cell, BlockState::Electricity(Direction::Left))
-                                        || !matches!(left_cell, BlockState::Electricity(_)) {
-                                        new_game_map.cells[y * self.width + x] = BlockState::Copper;
-                                        continue
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                new_game_map.cells[y * self.width + x] = state.compute(Direction::DIRECTIONS.iter()
+                    .map(|d| self.get_cell((x,y),d.to_vector())
+                        .unwrap_or(&BlockState::Empty))
+                    .collect::<Vec<&BlockState>>()
+                    .try_into()
+                    .unwrap_or([&BlockState::Empty;4])
+                );
             }
         }
-        
-        
+
         new_game_map
     }
 }

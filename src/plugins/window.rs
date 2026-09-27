@@ -150,7 +150,7 @@ fn setup_camera(camera_query: Single<(&mut Camera, &mut Transform, &mut Projecti
     let (_camera, _transform, mut projection) = camera_query.into_inner();
 
     if let Projection::Orthographic(projection2d) = &mut *projection {
-        projection2d.scale = 0.1;
+        projection2d.scale = 0.01;
     }
 }
 
