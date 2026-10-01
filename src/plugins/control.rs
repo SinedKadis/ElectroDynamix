@@ -1,7 +1,7 @@
 use crate::plugins::config::Config;
 use crate::plugins::window::{CustomUiData, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
 use crate::plugins::world;
-use crate::plugins::world::{BlockState, Blocks, Direction, GameState, GameStates, SelectedState, UpdateTimer};
+use crate::plugins::world::{BlockState, Blocks, GameState, GameStates, SelectedState, UpdateTimer};
 use bevy::color::palettes::basic::RED;
 use bevy::input::mouse::AccumulatedMouseScroll;
 use bevy::input_focus::{FocusCause, InputFocus};
@@ -160,14 +160,14 @@ fn button_system(
                 *border_color = BorderColor::all(RED);
 
                 match button_data.name.as_str() {
-                    "Toggle Grid" => config.draw_grid = !config.draw_grid,
+                    "Toggle Preview" => config.draw_grid = !config.draw_grid,
                     "Toggle Arrows" => config.draw_arrows = !config.draw_arrows,
                     "Rubber" => selection.state = BlockState::Empty,
                     "Copper" => selection.state = BlockState::Copper,
-                    "Electricity Right" => selection.state = BlockState::Electricity([Direction::None,Direction::Right,Direction::None,Direction::None]),
-                    "Electricity Left" => selection.state = BlockState::Electricity([Direction::Left,Direction::None,Direction::None,Direction::None]),
-                    "Electricity Up" => selection.state = BlockState::Electricity([Direction::None,Direction::None,Direction::Up,Direction::None]),
-                    "Electricity Down" => selection.state = BlockState::Electricity([Direction::None,Direction::None,Direction::None,Direction::Down]),
+                    "Electricity Left" => selection.state = BlockState::Electricity([true,false,false,false]),
+                    "Electricity Right" => selection.state = BlockState::Electricity([false,false,true,false]),
+                    "Electricity Up" => selection.state = BlockState::Electricity([false,true,false,false]),
+                    "Electricity Down" => selection.state = BlockState::Electricity([false,false,false,true]),
                     "Compile" => game_state.state = GameStates::Compiling,
                     "Terminate" => game_state.state = GameStates::Drawing,
                     "Pause" => {

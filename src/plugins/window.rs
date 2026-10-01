@@ -67,7 +67,7 @@ fn setup(mut commands: Commands) {
             ..default()
         },
         children![
-            button_bundle(String::from("Toggle Grid")),
+            button_bundle(String::from("Toggle Preview")),
             button_bundle(String::from("Toggle Arrows"))
         ],
     ));
