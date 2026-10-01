@@ -36,7 +36,9 @@ fn draw_preview(
     if let Some(cursor_position) = window.cursor_position()
         && let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position)
     {
-        state.state.draw_preview(world_pos, &mut gizmos)
+        for pos in get_positions_in_range(world_pos.floor().as_ivec2(), state.size-1) {
+            state.state.draw_preview(pos.as_vec2(), &mut gizmos)
+        }
     }
 }
 fn draw_blocks(mut painter: ShapePainter,
@@ -215,6 +217,7 @@ impl Direction {
 #[derive(Resource)]
 pub struct SelectedState{
     pub(crate) state: BlockState,
+    pub(crate) size: i32,
 }
 
 #[derive(Resource)]
@@ -323,4 +326,19 @@ fn update_blocks(mut game_state: ResMut<GameState>,
         };
         game_state.state = GameStates::Executing(new_game_map);
     }
+}
+
+pub fn get_positions_in_range(center: IVec2, max_distance: i32) -> Vec<IVec2> {
+    let mut points = Vec::new();
+
+    for x in -max_distance..=max_distance {
+        for y in -max_distance..=max_distance {
+            let point = center + IVec2::new(x, y);
+
+            if center.distance_squared(point) <= (max_distance*max_distance) {
+                points.push(point);
+            }
+        }
+    }
+    points
 }

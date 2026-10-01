@@ -9,6 +9,7 @@ use bevy::math::ops::powf;
 use bevy::prelude::*;
 use bevy::ui_widgets::SliderValue;
 use std::time::Duration;
+use bevy::picking::hover::Hovered;
 
 pub struct ControlPlugin;
 
@@ -16,7 +17,7 @@ impl Plugin for ControlPlugin {
     fn build(&self, app: &mut App) {
         // app.add_systems(Startup, setup);
         app.add_systems(FixedUpdate, (controls,start_game));
-        app.insert_resource(SelectedState{ state: BlockState::Copper });
+        app.insert_resource(SelectedState{ state: BlockState::Copper , size: 1});
         app.add_systems(Update, (button_system,slider_system));
     }
 }
@@ -43,6 +44,11 @@ fn controls(
             &Interaction,
         )
     >,
+    hover_query: Query<
+        (
+            &Hovered,
+        )
+    >,
     game_state: Res<GameState>
 
 ) {
@@ -50,7 +56,7 @@ fn controls(
     let (camera, mut transform, mut projection,camera_transform)
         = camera_query.into_inner();
 
-    on_mouse_click(&mouse_button_input, window, &mut blocks, &interaction_query, camera, camera_transform, sel_state, game_state);
+    on_mouse_click(&mouse_button_input, window, &mut blocks, &interaction_query,&hover_query, camera, camera_transform, sel_state, game_state);
 
     if mouse_button_input.just_pressed(MouseButton::Left) {
 
@@ -98,6 +104,7 @@ fn on_mouse_click(
     window: Single<&Window>,
     blocks: &mut ResMut<Blocks>,
     interaction_query: &Query<(&Interaction,)>,
+    hover_query: &Query<(&Hovered,)>,
     camera: &Camera,
     camera_transform: &GlobalTransform,
     sel_state: Res<SelectedState>,
@@ -109,7 +116,8 @@ fn on_mouse_click(
 
     let is_interacting_with_ui = interaction_query
         .iter()
-        .any(|(interaction,)| *interaction != Interaction::None);
+        .any(|(interaction,)| *interaction != Interaction::None)
+        || hover_query.iter().any(|(hovered,)| hovered.0);
     if is_interacting_with_ui {
         return;
     }
@@ -126,20 +134,21 @@ fn on_mouse_click(
         return;
     };
 
-    let x = world_pos.x.floor() as i32;
-    let y = world_pos.y.floor() as i32;
+    for pos in world::get_positions_in_range(world_pos.floor().as_ivec2(), sel_state.size-1) {
+        let x = pos.x;
+        let y = pos.y;
 
-    if let Some(existing_block) = blocks
-        .block_data
-        .iter_mut()
-        .find(|(bx, by, _)| *bx == x && *by == y)
-    {
-        existing_block.2 = sel_state.state;
-    } else {
-        blocks.block_data.push((x, y, sel_state.state));
+        if let Some(existing_block) = blocks
+            .block_data
+            .iter_mut()
+            .find(|(bx, by, _)| *bx == x && *by == y)
+        {
+            existing_block.2 = sel_state.state;
+        } else {
+            blocks.block_data.push((x, y, sel_state.state));
+        }
     }
 }
-
 
 
 fn button_system(
@@ -201,12 +210,21 @@ fn button_system(
 
 fn slider_system(
     mut update_timer: ResMut<UpdateTimer>,
-    changed_sliders: Query<&SliderValue, Changed<SliderValue>>,
+    mut selected_state:  ResMut<SelectedState>,
+    changed_sliders: Query<(&SliderValue,&CustomUiData), Changed<SliderValue>>,
 ) {
     for slider_value in &changed_sliders {
-        update_timer.0.set_duration(Duration::from_secs_f32(
-            1.0 / (slider_value.0 + 1.0).powi(10)
-        ));
+        match slider_value.1.name.as_str() {
+            "Speed" => {update_timer.0.set_duration(Duration::from_secs_f32(
+                1.0 / (slider_value.0.0 + 1.0).powi(10)
+            ));
+            }
+            "Size" => {
+                selected_state.size = slider_value.0.0.round() as i32;
+            }
+            _ => {}
+        }
+
     }
 }
 

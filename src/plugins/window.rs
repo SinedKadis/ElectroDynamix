@@ -103,6 +103,19 @@ fn setup(mut commands: Commands) {
         children![
             slider_bundle(String::from("Speed"),0f32,1f32,0f32)
         ],
+    ));commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            left: px(12.0),
+            bottom: px(60.0),
+            flex_direction: FlexDirection::Column,
+            align_items: AlignItems::Center,
+            row_gap: px(3.0),
+            ..default()
+        },
+        children![
+            slider_bundle(String::from("Size"),1f32,5f32,1f32)
+        ],
     ));
 }
 
