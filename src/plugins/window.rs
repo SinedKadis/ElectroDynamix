@@ -50,10 +50,14 @@ fn setup(mut commands: Commands) {
         children![
             button_bundle(String::from("Rubber")),
             button_bundle(String::from("Copper")),
-            button_bundle(String::from("Electricity Right")),
-            button_bundle(String::from("Electricity Left")),
-            button_bundle(String::from("Electricity Up")),
-            button_bundle(String::from("Electricity Down")),
+            button_bundle(String::from("El. Left")),
+            button_bundle(String::from("El. Up")),
+            button_bundle(String::from("El. Right")),
+            button_bundle(String::from("El. Down")),
+            button_bundle(String::from("Diode Left")),
+            button_bundle(String::from("Diode Up")),
+            button_bundle(String::from("Diode Right")),
+            button_bundle(String::from("Diode Down")),
         ],
     ));
     commands.spawn((

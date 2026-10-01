@@ -1,7 +1,7 @@
 use crate::plugins::config::Config;
 use crate::plugins::window::{CustomUiData, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
 use crate::plugins::world;
-use crate::plugins::world::{BlockState, Blocks, GameState, GameStates, SelectedState, UpdateTimer};
+use crate::plugins::world::{BlockState, Blocks, Direction, GameState, GameStates, SelectedState, UpdateTimer};
 use bevy::color::palettes::basic::RED;
 use bevy::input::mouse::AccumulatedMouseScroll;
 use bevy::input_focus::{FocusCause, InputFocus};
@@ -173,10 +173,14 @@ fn button_system(
                     "Toggle Arrows" => config.draw_arrows = !config.draw_arrows,
                     "Rubber" => selection.state = BlockState::Empty,
                     "Copper" => selection.state = BlockState::Copper,
-                    "Electricity Left" => selection.state = BlockState::Electricity([true,false,false,false]),
-                    "Electricity Right" => selection.state = BlockState::Electricity([false,false,true,false]),
-                    "Electricity Up" => selection.state = BlockState::Electricity([false,true,false,false]),
-                    "Electricity Down" => selection.state = BlockState::Electricity([false,false,false,true]),
+                    "El. Left" => selection.state = BlockState::Electricity([true,false,false,false]),
+                    "El. Right" => selection.state = BlockState::Electricity([false,false,true,false]),
+                    "El. Up" => selection.state = BlockState::Electricity([false,true,false,false]),
+                    "El. Down" => selection.state = BlockState::Electricity([false,false,false,true]),
+                    "Diode Left" => selection.state = BlockState::Diode(Direction::Left,false),
+                    "Diode Right" => selection.state = BlockState::Diode(Direction::Right,false),
+                    "Diode Up" => selection.state = BlockState::Diode(Direction::Up,false),
+                    "Diode Down" => selection.state = BlockState::Diode(Direction::Down,false),
                     "Compile" => game_state.state = GameStates::Compiling,
                     "Terminate" => game_state.state = GameStates::Drawing,
                     "Pause" => {

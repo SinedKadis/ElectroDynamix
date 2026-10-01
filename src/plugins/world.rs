@@ -1,6 +1,6 @@
 use crate::plugins::config::Config;
 use bevy::color::palettes::css::ORANGE_RED;
-use bevy::color::palettes::tailwind::CYAN_700;
+use bevy::color::palettes::tailwind::{CYAN_700, YELLOW_300, YELLOW_700};
 use bevy::prelude::*;
 use bevy::reflect::array::Array;
 use bevy_vector_shapes::Shape2dPlugin;
@@ -76,7 +76,8 @@ pub enum BlockState{
     #[default]
     Empty,
     Copper,
-    Electricity([bool;4])
+    Electricity([bool;4]),
+    Diode(Direction,bool)
 }
 
 impl BlockState {
@@ -86,6 +87,13 @@ impl BlockState {
             BlockState::Empty => Color::NONE,
             BlockState::Copper => Color::from(ORANGE_RED),
             BlockState::Electricity(_) => Color::from(CYAN_700),
+            BlockState::Diode(_,act) => {
+                if *act{
+                    Color::from(YELLOW_300)
+                }else{
+                    Color::from(YELLOW_700)
+                }
+            },
         }
     }
     pub fn draw_preview(&self, world_pos: Vec2, gizmos: &mut Gizmos) {
@@ -100,7 +108,11 @@ impl BlockState {
             }
             BlockState::Electricity(directions) => {
                 gizmos.rect_2d(world_pos.floor().add(Vec2::new(0.5,0.5)), Vec2::ONE, self.get_color());
-                self.draw_arrows(world_pos, gizmos, directions,true);
+                self.draw_arrows(world_pos, gizmos, directions, true, self.get_color());
+            }
+            BlockState::Diode(dir,_) => {
+                gizmos.rect_2d(world_pos.floor().add(Vec2::new(0.5,0.5)), Vec2::ONE, self.get_color());
+                self.draw_arrows(world_pos, gizmos, &dir.to_bool_array(), true, self.get_color());
             }
         }
     }
@@ -120,33 +132,47 @@ impl BlockState {
                 painter.rect(Vec2::splat(1.0));
                 painter.reset();
                 if draw_arrows {
-                    self.draw_arrows(world_pos, gizmos, directions,false);
+                    self.draw_arrows(world_pos, gizmos, directions, false, Color::WHITE);
                 }
+            }
+            BlockState::Diode(dir,_) => {
+                painter.color = self.get_color();
+                painter.translate(Vec3::new(world_pos.x.floor() + 0.5, world_pos.y.floor() + 0.5, 1.0));
+                painter.rect(Vec2::splat(1.0));
+                painter.reset();
+                self.draw_arrows(world_pos, gizmos, &dir.to_bool_array(), true, Color::BLACK);
             }
         }
     }
 
-    fn draw_arrows(&self, world_pos: Vec2, gizmos: &mut Gizmos, directions: &[bool; 4], preview: bool) {
+    fn draw_arrows(&self, world_pos: Vec2, gizmos: &mut Gizmos, directions: &[bool; 4], centered: bool, color: Color) {
         for (i, dir) in directions.iter().enumerate() {
             if !dir.try_downcast_ref::<bool>().unwrap() { continue; }
             let direction = Direction::DIRECTIONS[i];
             let center = world_pos.floor().add(Vec2::new(0.5, 0.5));
-            if preview {
-                gizmos.arrow_2d(center.add(direction.opposite().to_vector() * 0.4), center.add(direction.to_vector() * 0.4), self.get_color());
+            if centered {
+                gizmos.arrow_2d(center.add(direction.opposite().to_vector() * 0.4), center.add(direction.to_vector() * 0.4), color);
             } else {
-                gizmos.arrow_2d(center + (direction.to_vector() * 0.1), center + (direction.to_vector() * 0.9), Color::WHITE);
+                gizmos.arrow_2d(center + (direction.to_vector() * 0.1), center + (direction.to_vector() * 0.9), color);
             }
         }
     }
 
     fn compute(&self, surround_states: [&BlockState;4]) -> BlockState {
         match self {
+            BlockState::Empty => *self,
             BlockState::Copper => {
                 let mut new_dir: [bool;4] = [false;4];
                 for (i, surround_state) in surround_states.iter().enumerate() {
                     if let BlockState::Electricity(elect_dirs) = surround_state {
                         if !elect_dirs[i] {
                             new_dir[(i+2)%4] = true;
+                        }
+                    } else if let BlockState::Diode(dir,act) = surround_state {
+                        if Direction::DIRECTIONS[i] == dir.opposite() {
+                            if *act {
+                                new_dir[(i+2)%4] = true;
+                            }
                         }
                     }
                 }
@@ -158,18 +184,38 @@ impl BlockState {
             BlockState::Electricity(directions) => {
                 let mut new_dir: [bool;4] = [false;4];
                 for (i, _direction) in directions.iter().enumerate() {
-                    if let BlockState::Electricity(elect_dirs) = surround_states[(i+2)%4] {
-                        if !elect_dirs[(i+2)%4] {
-                            new_dir[i] = true;
-                        }
-                    }
+                    Self::compute_electrisity_from_direction(surround_states, &mut new_dir, i);
                 }
                 if new_dir.contains(&true) {
                     return  BlockState::Electricity(new_dir)
                 }
                 BlockState::Copper
             }
-            _ => {*self}
+            BlockState::Diode(dir,_act) => {
+                let mut new_dir: [bool;4] = [false;4];
+                for (i, direction) in dir.to_bool_array().iter().enumerate() {
+                    if !direction.try_downcast_ref::<bool>().unwrap() { continue; }
+                    Self::compute_electrisity_from_direction(surround_states, &mut new_dir, i);
+                }
+                if new_dir.contains(&true) {
+                    return BlockState::Diode(*dir,true)
+                }
+                BlockState::Diode(*dir,false)
+            }
+        }
+    }
+
+    fn compute_electrisity_from_direction(surround_states: [&BlockState; 4], new_directions: &mut [bool; 4], dir_index: usize) {
+        if let BlockState::Electricity(elect_dirs) = surround_states[(dir_index + 2) % 4] {
+            if !elect_dirs[(dir_index + 2) % 4] {
+                new_directions[dir_index] = true;
+            }
+        } else if let BlockState::Diode(dir, act) = surround_states[(dir_index + 2) % 4] {
+            if Direction::DIRECTIONS[dir_index] == *dir {
+                if *act {
+                    new_directions[dir_index] = true;
+                }
+            }
         }
     }
 }
@@ -210,6 +256,15 @@ impl Direction {
             Direction::Right => Vec2::new(1.0,0.0),
             Direction::Up => Vec2::new(0.0,1.0),
             Direction::Down => Vec2::new(0.0,-1.0),
+        }
+    }
+
+    pub fn to_bool_array(&self) -> [bool;4]{
+        match self {
+            Direction::Left => [true,false,false,false],
+            Direction::Right => [false,false,true,false],
+            Direction::Up => [false,true,false,false],
+            Direction::Down => [false,false,false,true],
         }
     }
 }
