@@ -378,6 +378,16 @@ impl GameMap {
         gy * self.width + gx
     }
 
+    pub(crate) fn get(&self, x: i32, y: i32) -> Option<&BlockState> {
+        if x < self.min_x
+            || x >= self.min_x + self.width as i32
+            || y < self.min_y
+            || y >= self.min_y + self.height as i32 {
+            return None;
+        }
+        Some(&self.cells[self.index(x, y)])
+    }
+
     pub(crate) fn set(&mut self, x: i32, y: i32, state: BlockState) {
         let idx = self.index(x, y);
         self.cells[idx] = state;

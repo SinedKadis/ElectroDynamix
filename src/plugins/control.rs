@@ -18,7 +18,7 @@ impl Plugin for ControlPlugin {
         // app.add_systems(Startup, setup);
         app.add_systems(FixedUpdate, start_game);
         app.insert_resource(SelectedState{ state: BlockState::Copper , size: 1});
-        app.add_systems(Update, (controls,button_system,slider_system,on_mouse_click));
+        app.add_systems(Update, (controls, button_system, slider_system, left_mouse_click,middle_mouse_click));
     }
 }
 
@@ -35,26 +35,12 @@ fn controls(
     input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
-    mouse_button_input: Res<ButtonInput<MouseButton>>,
     mut game_state: ResMut<GameState>,
     mut sel_state: ResMut<SelectedState>,
 ) {
 
     let (mut transform, mut projection)
         = camera_query.into_inner();
-
-    if mouse_button_input.just_pressed(MouseButton::Left) {
-
-    }
-
-    if mouse_button_input.just_released(MouseButton::Left) {
-
-    }
-    
-
-
-
-
 
     if let Projection::Orthographic(projection2d) = &mut *projection {
         if accumulated_mouse_scroll.delta != Vec2::ZERO {
@@ -107,7 +93,7 @@ fn controls(
     }
 }
 
-fn on_mouse_click(
+fn left_mouse_click(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     sel_state: Res<SelectedState>,
     interaction_query: Query<
@@ -126,12 +112,12 @@ fn on_mouse_click(
     camera_query: Single<(&Camera, &GlobalTransform)>,
 
 ) {
-    let (camera,camera_transform)
-        = camera_query.into_inner();
-
     if !mouse_button_input.pressed(MouseButton::Left) {
         return;
     }
+    
+    let (camera,camera_transform)
+        = camera_query.into_inner();
 
     let is_interacting_with_ui = interaction_query
         .iter()
@@ -167,6 +153,61 @@ fn on_mouse_click(
             blocks.block_data.push((x, y, sel_state.state));
         }
     }
+}
+
+fn middle_mouse_click(
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    window: Single<&Window>,
+    camera_query: Single<(&Camera, &GlobalTransform)>,
+    game_state: Res<GameState>,
+    blocks: Res<Blocks>,
+    mut sel_state: ResMut<SelectedState>,
+
+){
+    if !mouse_button_input.just_pressed(MouseButton::Middle) {
+        return;
+    }
+    let Some(cursor_position) = window.cursor_position() else {
+        return;
+    };
+
+    let (camera,camera_transform)
+        = camera_query.into_inner();
+    
+    let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position) else {
+        return;
+    };
+    let x = world_pos.floor().as_ivec2().x;
+    let y = world_pos.floor().as_ivec2().y;
+    match &game_state.state {
+        GameStates::Drawing => {
+            if let Some(existing_block) = blocks
+                .block_data
+                .iter()
+                .find(|(bx, by, _)| *bx == x && *by == y)
+            {
+                sel_state.state = existing_block.2;
+            } else {
+                sel_state.state = BlockState::Empty;       
+            }
+        }
+        GameStates::Compiling => {}
+        GameStates::Executing(game) => {
+            if let Some(block) = game.get(x, y) {
+                sel_state.state = *block;
+            } else {
+                sel_state.state = BlockState::Empty;
+            }
+        }
+        GameStates::Paused(game) => {
+            if let Some(block) = game.get(x, y) {
+                sel_state.state = *block;
+            } else {
+                sel_state.state = BlockState::Empty;
+            }
+        }
+    }
+    
 }
 
 
