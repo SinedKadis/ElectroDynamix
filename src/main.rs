@@ -1,9 +1,10 @@
 
 mod plugins;
+mod world;
 
+use world::world::WorldPlugin;
 use bevy::prelude::*;
-use plugins::{config, control, window, world};
-
+use plugins::{config, control, window};
 
 fn main() {
     App::new()
@@ -11,7 +12,7 @@ fn main() {
         .add_plugins((
             control::ControlPlugin,
             window::WindowPlugin,
-            world::WorldPlugin,
+            WorldPlugin,
             config::ConfigPlugin,
         ))
         .run();

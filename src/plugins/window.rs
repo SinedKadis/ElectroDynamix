@@ -1,9 +1,9 @@
-use crate::plugins::world::{GameState, GameStates};
+use crate::world::world::{GameState, GameStates};
 use bevy::input_focus::InputFocus;
+use bevy::picking::hover::Hovered;
 use bevy::
 prelude::*;
-use bevy::picking::hover::Hovered;
-use bevy::ui_widgets::{observe, slider_self_update, Slider, SliderRange, SliderThumb, SliderValue, TrackClick};
+use bevy::ui_widgets::{Slider, SliderRange, SliderThumb, SliderValue, TrackClick, observe, slider_self_update};
 
 pub struct WindowPlugin;
 

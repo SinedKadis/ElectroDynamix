@@ -1,15 +1,16 @@
 use crate::plugins::config::Config;
 use crate::plugins::window::{CustomUiData, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
-use crate::plugins::world;
-use crate::plugins::world::{BlockState, Blocks, Direction, GameState, GameStates, SelectedState, UpdateTimer};
+use crate::world::direction::Direction;
+use crate::world::world::{BlockState, Blocks, GameState, GameStates, SelectedState, UpdateTimer};
+use crate::world::{game_map, world};
 use bevy::color::palettes::basic::RED;
 use bevy::input::mouse::AccumulatedMouseScroll;
 use bevy::input_focus::{FocusCause, InputFocus};
 use bevy::math::ops::powf;
+use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
 use bevy::ui_widgets::SliderValue;
 use std::time::Duration;
-use bevy::picking::hover::Hovered;
 
 pub struct ControlPlugin;
 
@@ -309,7 +310,7 @@ fn start_game(mut game_state: ResMut<GameState>,
     let width = (max_x - min_x + 1) as usize;
     let height = (max_y - min_y + 1) as usize;
 
-    let mut game_map = world::GameMap::new(width, height, *min_x, *min_y);
+    let mut game_map = game_map::GameMap::new(width, height, *min_x, *min_y);
 
     for (x, y, state) in &blocks.block_data {
         if *state == BlockState::Empty { continue; }
