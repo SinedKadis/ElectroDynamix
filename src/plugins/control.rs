@@ -16,7 +16,7 @@ pub struct ControlPlugin;
 impl Plugin for ControlPlugin {
     fn build(&self, app: &mut App) {
         // app.add_systems(Startup, setup);
-        app.add_systems(FixedUpdate, (start_game));
+        app.add_systems(FixedUpdate, start_game);
         app.insert_resource(SelectedState{ state: BlockState::Copper , size: 1});
         app.add_systems(Update, (controls,button_system,slider_system,on_mouse_click));
     }
@@ -36,10 +36,8 @@ fn controls(
     time: Res<Time>,
     accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
-
+    mut game_state: ResMut<GameState>,
     mut sel_state: ResMut<SelectedState>,
-
-
 ) {
 
     let (mut transform, mut projection)
@@ -58,7 +56,6 @@ fn controls(
 
 
 
-    // Camera zoom controls
     if let Projection::Orthographic(projection2d) = &mut *projection {
         if accumulated_mouse_scroll.delta != Vec2::ZERO {
             let delta = accumulated_mouse_scroll.delta;
@@ -77,19 +74,35 @@ fn controls(
             }
         }
 
-        let fspeed = 600.0 * time.delta_secs() * projection2d.scale;
+        let speed = 600.0 * time.delta_secs() * projection2d.scale;
         // Camera movement controls
         if input.pressed(KeyCode::KeyW) {
-            transform.translation.y += fspeed;
+            transform.translation.y += speed;
         }
         if input.pressed(KeyCode::KeyS) {
-            transform.translation.y -= fspeed;
+            transform.translation.y -= speed;
         }
         if input.pressed(KeyCode::KeyA) {
-            transform.translation.x -= fspeed;
+            transform.translation.x -= speed;
         }
         if input.pressed(KeyCode::KeyD) {
-            transform.translation.x += fspeed;
+            transform.translation.x += speed;
+        }
+        if input.just_pressed(KeyCode::Space) {
+            match &game_state.state {
+                GameStates::Drawing => {game_state.state = GameStates::Compiling; }
+                GameStates::Compiling => {}
+                GameStates::Executing(game) => {game_state.state = GameStates::Paused(game.clone());}
+                GameStates::Paused(game) => {game_state.state = GameStates::Executing(game.clone());}
+            }
+        }
+        if input.just_pressed(KeyCode::Escape) {
+            match &game_state.state {
+                GameStates::Drawing => {}
+                GameStates::Compiling => {game_state.state = GameStates::Drawing;}
+                GameStates::Executing(_) => {game_state.state = GameStates::Drawing;}
+                GameStates::Paused(_) => {game_state.state = GameStates::Drawing;}
+            }
         }
     }
 }
