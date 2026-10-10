@@ -100,17 +100,7 @@ impl BlockState {
             BlockState::Copper => {
                 let mut new_dir: [bool;4] = [false;4];
                 for (i, surround_state) in surround_states.iter().enumerate() {
-                    if let BlockState::Electricity(elect_dirs) = surround_state {
-                        if !elect_dirs[i] {
-                            new_dir[(i+2)%4] = true;
-                        }
-                    } else if let BlockState::Diode(dir,act) = surround_state {
-                        if Direction::DIRECTIONS[i] == dir.opposite() {
-                            if *act {
-                                new_dir[(i+2)%4] = true;
-                            }
-                        }
-                    }
+                    new_dir[(i+2)%4] = surround_state.is_activated_for(&Direction::DIRECTIONS[i]);
                 }
                 if new_dir.contains(&true) {
                     return  BlockState::Electricity(new_dir)
@@ -119,8 +109,9 @@ impl BlockState {
             }
             BlockState::Electricity(directions) => {
                 let mut new_dir: [bool;4] = [false;4];
-                for (i, _direction) in directions.iter().enumerate() {
-                    Self::compute_electricity_from_direction(surround_states, &mut new_dir, i);
+                for (i, direction) in Direction::from_bool_array(*directions).iter().enumerate() {
+                    if *direction == Direction::None { continue }
+                    new_dir[i] = surround_states[(i+2)%4].is_activated_for(&direction.opposite());
                 }
                 if new_dir.contains(&true) {
                     return  BlockState::Electricity(new_dir)
@@ -128,30 +119,22 @@ impl BlockState {
                 BlockState::Copper
             }
             BlockState::Diode(dir,_act) => {
-                let mut new_dir: [bool;4] = [false;4];
-                for (i, direction) in dir.to_bool_array().iter().enumerate() {
-                    if !direction { continue; }
-                    Self::compute_electricity_from_direction(surround_states, &mut new_dir, i);
-                }
-                if new_dir.contains(&true) {
-                    return BlockState::Diode(*dir,true)
-                }
-                BlockState::Diode(*dir,false)
+                BlockState::Diode(*dir,surround_states[((*dir as usize)+2)%4].is_activated_for(&dir.opposite()))
             }
         }
     }
 
-    fn compute_electricity_from_direction(surround_states: [&BlockState; 4], new_directions: &mut [bool; 4], dir_index: usize) {
-        if let BlockState::Electricity(elect_dirs) = surround_states[(dir_index + 2) % 4] {
-            if !elect_dirs[(dir_index + 2) % 4] {
-                new_directions[dir_index] = true;
-            }
-        } else if let BlockState::Diode(dir, act) = surround_states[(dir_index + 2) % 4] {
-            if Direction::DIRECTIONS[dir_index] == *dir {
-                if *act {
-                    new_directions[dir_index] = true;
+    ///Using the opposite direction - when the request comes from right, the direction is left
+    fn is_activated_for(&self, request_from: &Direction) -> bool {
+        match self {
+            BlockState::Electricity(dir) => {
+                if *request_from != Direction::None && dir[*request_from as usize] {
+                    return false;
                 }
-            }
+                dir.contains(&true)
+            },
+            BlockState::Diode(dir, act) => *act && *dir == request_from.opposite(),
+            _ => false,
         }
     }
 

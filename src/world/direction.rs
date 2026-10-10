@@ -2,10 +2,10 @@ use bevy::math::Vec2;
 
 #[derive(Clone,Copy,PartialEq,Eq)]
 pub enum Direction {
-    Up,
-    Down,
     Left,
+    Up,
     Right,
+    Down,
     None
 }
 

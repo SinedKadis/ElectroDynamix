@@ -91,6 +91,18 @@ fn controls(
                 GameStates::Paused(_) => {game_state.state = GameStates::Drawing;}
             }
         }
+        if input.just_pressed(KeyCode::Digit1) {
+            sel_state.state = BlockState::Empty;
+        }
+        if input.just_pressed(KeyCode::Digit2) {
+            sel_state.state = BlockState::Copper;
+        }
+        if input.just_pressed(KeyCode::Digit3) {
+            sel_state.state = BlockState::Electricity([false,false,true,false]);
+        }
+        if input.just_pressed(KeyCode::Digit4) {
+            sel_state.state = BlockState::Diode(Direction::Right,false);
+        }
     }
 }
 
