@@ -53,9 +53,9 @@ fn controls(
                 }
             } else {
                 if delta.y < 0.0  {
-                    sel_state.state = sel_state.state.rotate(true);
-                } else {
                     sel_state.state = sel_state.state.rotate(false);
+                } else {
+                    sel_state.state = sel_state.state.rotate(true);
                 }
             }
         }
@@ -115,7 +115,7 @@ fn left_mouse_click(
     if !mouse_button_input.pressed(MouseButton::Left) {
         return;
     }
-    
+
     let (camera,camera_transform)
         = camera_query.into_inner();
 
@@ -173,7 +173,7 @@ fn middle_mouse_click(
 
     let (camera,camera_transform)
         = camera_query.into_inner();
-    
+
     let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position) else {
         return;
     };
@@ -188,7 +188,7 @@ fn middle_mouse_click(
             {
                 sel_state.state = existing_block.2;
             } else {
-                sel_state.state = BlockState::Empty;       
+                sel_state.state = BlockState::Empty;
             }
         }
         GameStates::Compiling => {}
@@ -207,7 +207,7 @@ fn middle_mouse_click(
             }
         }
     }
-    
+
 }
 
 
@@ -234,7 +234,7 @@ fn button_system(
                     "Rubber" => selection.state = BlockState::Empty,
                     "Copper" => selection.state = BlockState::Copper,
                     "Electricity" => selection.state = BlockState::Electricity([false,false,true,false]),
-                    "Diode Down" => selection.state = BlockState::Diode(Direction::Right,false),
+                    "Diode" => selection.state = BlockState::Diode(Direction::Right,false),
                     "Compile" => game_state.state = GameStates::Compiling,
                     "Terminate" => game_state.state = GameStates::Drawing,
                     "Pause" => {

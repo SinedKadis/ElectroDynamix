@@ -140,7 +140,9 @@ impl BlockState {
                 painter.translate(Vec3::new(world_pos.x.floor() + 0.5, world_pos.y.floor() + 0.5, 1.0));
                 painter.rect(Vec2::splat(1.0));
                 painter.reset();
-                self.draw_arrows(world_pos, gizmos, &dir.to_bool_array(), true, Color::BLACK);
+                if draw_arrows {
+                    self.draw_arrows(world_pos, gizmos, &dir.to_bool_array(), true, Color::BLACK);
+                }
             }
         }
     }
@@ -184,7 +186,7 @@ impl BlockState {
             BlockState::Electricity(directions) => {
                 let mut new_dir: [bool;4] = [false;4];
                 for (i, _direction) in directions.iter().enumerate() {
-                    Self::compute_electrisity_from_direction(surround_states, &mut new_dir, i);
+                    Self::compute_electricity_from_direction(surround_states, &mut new_dir, i);
                 }
                 if new_dir.contains(&true) {
                     return  BlockState::Electricity(new_dir)
@@ -195,7 +197,7 @@ impl BlockState {
                 let mut new_dir: [bool;4] = [false;4];
                 for (i, direction) in dir.to_bool_array().iter().enumerate() {
                     if !direction.try_downcast_ref::<bool>().unwrap() { continue; }
-                    Self::compute_electrisity_from_direction(surround_states, &mut new_dir, i);
+                    Self::compute_electricity_from_direction(surround_states, &mut new_dir, i);
                 }
                 if new_dir.contains(&true) {
                     return BlockState::Diode(*dir,true)
@@ -205,7 +207,7 @@ impl BlockState {
         }
     }
 
-    fn compute_electrisity_from_direction(surround_states: [&BlockState; 4], new_directions: &mut [bool; 4], dir_index: usize) {
+    fn compute_electricity_from_direction(surround_states: [&BlockState; 4], new_directions: &mut [bool; 4], dir_index: usize) {
         if let BlockState::Electricity(elect_dirs) = surround_states[(dir_index + 2) % 4] {
             if !elect_dirs[(dir_index + 2) % 4] {
                 new_directions[dir_index] = true;
