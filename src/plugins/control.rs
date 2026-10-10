@@ -16,9 +16,9 @@ pub struct ControlPlugin;
 impl Plugin for ControlPlugin {
     fn build(&self, app: &mut App) {
         // app.add_systems(Startup, setup);
-        app.add_systems(FixedUpdate, (controls,start_game));
+        app.add_systems(FixedUpdate, (start_game));
         app.insert_resource(SelectedState{ state: BlockState::Copper , size: 1});
-        app.add_systems(Update, (button_system,slider_system));
+        app.add_systems(Update, (controls,button_system,slider_system,on_mouse_click));
     }
 }
 
@@ -31,32 +31,19 @@ impl Plugin for ControlPlugin {
 const MOUSE_SENSITIVITY: f32 = 1f32;
 
 fn controls(
-    camera_query: Single<(&Camera, &mut Transform, &mut Projection,&GlobalTransform)>,
+    camera_query: Single<(&mut Transform, &mut Projection)>,
     input: Res<ButtonInput<KeyCode>>,
-    time: Res<Time<Fixed>>,
+    time: Res<Time>,
     accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
-    window: Single<&Window>,
-    mut blocks: ResMut<Blocks>,
-    sel_state: Res<SelectedState>,
-    interaction_query: Query<
-        (
-            &Interaction,
-        )
-    >,
-    hover_query: Query<
-        (
-            &Hovered,
-        )
-    >,
-    game_state: Res<GameState>
+
+    mut sel_state: ResMut<SelectedState>,
+
 
 ) {
 
-    let (camera, mut transform, mut projection,camera_transform)
+    let (mut transform, mut projection)
         = camera_query.into_inner();
-
-    on_mouse_click(&mouse_button_input, window, &mut blocks, &interaction_query,&hover_query, camera, camera_transform, sel_state, game_state);
 
     if mouse_button_input.just_pressed(MouseButton::Left) {
 
@@ -75,10 +62,18 @@ fn controls(
     if let Projection::Orthographic(projection2d) = &mut *projection {
         if accumulated_mouse_scroll.delta != Vec2::ZERO {
             let delta = accumulated_mouse_scroll.delta;
-            if delta.y < 0f32 {
-                projection2d.scale *= powf(4.0f32, time.delta_secs() * MOUSE_SENSITIVITY * 2f32);
+            if input.pressed(KeyCode::ControlLeft) {
+                if delta.y < 0.0 {
+                    projection2d.scale *= powf(4.0f32, time.delta_secs() * MOUSE_SENSITIVITY * 2f32);
+                }else {
+                    projection2d.scale *= powf(0.25f32, time.delta_secs() * MOUSE_SENSITIVITY * 2f32);
+                }
             } else {
-                projection2d.scale *= powf(0.25f32, time.delta_secs() * MOUSE_SENSITIVITY * 2f32);
+                if delta.y < 0.0  {
+                    sel_state.state = sel_state.state.rotate(true);
+                } else {
+                    sel_state.state = sel_state.state.rotate(false);
+                }
             }
         }
 
@@ -100,16 +95,27 @@ fn controls(
 }
 
 fn on_mouse_click(
-    mouse_button_input: &Res<ButtonInput<MouseButton>>,
-    window: Single<&Window>,
-    blocks: &mut ResMut<Blocks>,
-    interaction_query: &Query<(&Interaction,)>,
-    hover_query: &Query<(&Hovered,)>,
-    camera: &Camera,
-    camera_transform: &GlobalTransform,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
     sel_state: Res<SelectedState>,
+    interaction_query: Query<
+        (
+            &Interaction,
+        )
+    >,
+    hover_query: Query<
+        (
+            &Hovered,
+        )
+    >,
     game_state: Res<GameState>,
+    window: Single<&Window>,
+    mut blocks: ResMut<Blocks>,
+    camera_query: Single<(&Camera, &GlobalTransform)>,
+
 ) {
+    let (camera,camera_transform)
+        = camera_query.into_inner();
+
     if !mouse_button_input.pressed(MouseButton::Left) {
         return;
     }
@@ -173,14 +179,8 @@ fn button_system(
                     "Toggle Arrows" => config.draw_arrows = !config.draw_arrows,
                     "Rubber" => selection.state = BlockState::Empty,
                     "Copper" => selection.state = BlockState::Copper,
-                    "El. Left" => selection.state = BlockState::Electricity([true,false,false,false]),
-                    "El. Right" => selection.state = BlockState::Electricity([false,false,true,false]),
-                    "El. Up" => selection.state = BlockState::Electricity([false,true,false,false]),
-                    "El. Down" => selection.state = BlockState::Electricity([false,false,false,true]),
-                    "Diode Left" => selection.state = BlockState::Diode(Direction::Left,false),
-                    "Diode Right" => selection.state = BlockState::Diode(Direction::Right,false),
-                    "Diode Up" => selection.state = BlockState::Diode(Direction::Up,false),
-                    "Diode Down" => selection.state = BlockState::Diode(Direction::Down,false),
+                    "Electricity" => selection.state = BlockState::Electricity([false,false,true,false]),
+                    "Diode Down" => selection.state = BlockState::Diode(Direction::Right,false),
                     "Compile" => game_state.state = GameStates::Compiling,
                     "Terminate" => game_state.state = GameStates::Drawing,
                     "Pause" => {
