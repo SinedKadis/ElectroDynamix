@@ -119,6 +119,14 @@ impl BlockState {
                 BlockState::Copper
             }
             BlockState::Diode(dir,_act) => {
+                let right = dir.rotate(true);
+                if surround_states[right as usize].is_activated_for(&right) {
+                    return BlockState::Diode(*dir,false)
+                }
+                let left = dir.rotate(false);
+                if surround_states[left as usize].is_activated_for(&left) {
+                    return BlockState::Diode(*dir,false)
+                }
                 BlockState::Diode(*dir,surround_states[((*dir as usize)+2)%4].is_activated_for(&dir.opposite()))
             }
         }
