@@ -54,9 +54,9 @@ fn controls(
                 }
             } else {
                 if delta.y < 0.0  {
-                    sel_state.state = sel_state.state.rotate(false);
-                } else {
                     sel_state.state = sel_state.state.rotate(true);
+                } else {
+                    sel_state.state = sel_state.state.rotate(false);
                 }
             }
         }
