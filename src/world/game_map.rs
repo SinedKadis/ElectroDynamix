@@ -1,13 +1,10 @@
 use crate::world::blockstate::BlockState;
 use crate::world::direction::Direction;
-use bevy::camera::Camera;
-use bevy::input::ButtonInput;
 use bevy::math::{USizeVec2, Vec2};
-use bevy::prelude::MouseButton::Left;
-use bevy::prelude::{Gizmos, GlobalTransform, MouseButton, Res, Single, Window};
+use bevy::prelude::Gizmos;
 use bevy_vector_shapes::painter::ShapePainter;
 
-#[derive(Clone,PartialEq,Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub(crate) struct GameMap {
     width: usize,
     height: usize,
@@ -80,36 +77,31 @@ impl GameMap {
         self.cells.get(y * self.width + x)
     }
 
-    pub(crate) fn update(& self,
-                         mouse_button_input: Res<ButtonInput<MouseButton>>,
-                         window: Single<&Window>,
-                         camera_query: Single<(&Camera, &GlobalTransform)>) -> GameMap {
+    pub(crate) fn update(& self, interact_pos: Option<USizeVec2>) -> GameMap {
         let mut new_game_map = self.clone();
-        let interact_pos: Option<USizeVec2>;
-        if mouse_button_input.pressed(Left) {
-            let (camera, camera_transform) = camera_query.into_inner();
-            if let Some(cursor_position) = window.cursor_position()  {
-                if let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position) {
-                   interact_pos = self.to_game_pos(world_pos.x.floor() as i32, world_pos.y.floor() as i32);
-                } else { interact_pos = None; };
-            } else { interact_pos = None; };
-        } else { interact_pos = None; }
-        for y in 0..self.height {
+        if let Some(interact) = interact_pos {
+            if let Some(cell) = self.cells.get(self.index(interact)) {
+                if let BlockState::Button(_) = cell {
+                    new_game_map.cells[self.index(interact)] = BlockState::Button(true);
+                }
+            }
+        } else  {
+            for y in 0..self.height {
             for x in 0..self.width {
-                let interact: bool;
-                if let Some(inter_pos) = interact_pos {
-                    interact = inter_pos.x == x && inter_pos.y == y;
-                } else { interact = false; }
                 let state = &self.cells[y * self.width + x];
-                new_game_map.cells[y * self.width + x] = state.compute(Direction::DIRECTIONS.iter()
-                    .map(|d| self.get_cell((x,y),d.to_tuple_int())
-                        .unwrap_or(&BlockState::Empty))
-                    .collect::<Vec<&BlockState>>()
-                    .try_into()
-                    .unwrap_or([&BlockState::Empty;4]),interact
+                new_game_map.cells[y * self.width + x] = state.compute(
+                    Direction::DIRECTIONS.iter()
+                        .map(|d| self.get_cell((x,y),d.to_tuple_int())
+                            .unwrap_or(&BlockState::Empty))
+                        .collect::<Vec<&BlockState>>()
+                        .try_into()
+                        .unwrap_or([&BlockState::Empty;4])
                 );
             }
+            }
         }
+
+
 
         new_game_map
     }

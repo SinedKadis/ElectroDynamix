@@ -1,6 +1,7 @@
 use crate::plugins::config::Config;
 pub(crate) use crate::world::blockstate::BlockState;
 use crate::world::game_map::GameMap;
+use bevy::prelude::MouseButton::Left;
 use bevy::prelude::*;
 use bevy_vector_shapes::Shape2dPlugin;
 use bevy_vector_shapes::painter::ShapePainter;
@@ -93,7 +94,7 @@ pub(crate) struct UpdateTimer(pub(crate) Timer);
 
 fn update_blocks(mut game_state: ResMut<GameState>,
     mut timer: ResMut<UpdateTimer>,
-    time: Res<Time>, 
+    time: Res<Time>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     window: Single<&Window>,
     camera_query: Single<(&Camera, &GlobalTransform)>,
@@ -102,10 +103,21 @@ fn update_blocks(mut game_state: ResMut<GameState>,
         let new_game_map : GameMap = match &game_state.state {
             GameStates::Drawing => {return;}
             GameStates::Compiling => {return;}
-            GameStates::Executing(game_map) => {game_map.update(mouse_button_input, window, camera_query)}
+            GameStates::Executing(game_map) => {game_map.update(None)}
             GameStates::Paused(_) => {return;}
         };
         game_state.state = GameStates::Executing(new_game_map);
+    }
+    if mouse_button_input.pressed(Left) {
+        let (camera, camera_transform) = camera_query.into_inner();
+        if let Some(cursor_position) = window.cursor_position()  {
+            if let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position) {
+                if let GameStates::Executing(game) = &game_state.state {
+                    let new_game_map = game.update(game.to_game_pos(world_pos.x.floor() as i32, world_pos.y.floor() as i32));
+                    game_state.state = GameStates::Executing(new_game_map);
+                }
+            }
+        }
     }
 }
 

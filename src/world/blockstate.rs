@@ -113,7 +113,7 @@ impl BlockState {
         }
     }
 
-    pub(crate) fn compute(&self, surround_states: [&BlockState;4],interact: bool) -> BlockState {
+    pub(crate) fn compute(&self, surround_states: [&BlockState;4]) -> BlockState {
         match self {
             BlockState::Empty => *self,
             BlockState::Copper => {
@@ -148,7 +148,7 @@ impl BlockState {
                 }
                 BlockState::Diode(*dir,surround_states[((*dir as usize)+2)%4].is_activated_for(&dir.opposite()))
             }
-            BlockState::Button(_) => BlockState::Button(interact)
+            BlockState::Button(_) => BlockState::Button(false)
         }
     }
 
