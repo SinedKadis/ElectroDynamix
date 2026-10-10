@@ -260,7 +260,8 @@ fn button_system(
                             game_state.state = GameStates::Executing(game_map.clone());
                         }
                     }
-                    _ => {}
+                    "Button" => selection.state = BlockState::Button(false),
+                    other => {panic!("Unknown button: {}", other)}
                 }
                 button.set_changed();
             }

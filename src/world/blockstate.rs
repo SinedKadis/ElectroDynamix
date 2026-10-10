@@ -1,8 +1,8 @@
 use std::ops::Add;
-use bevy::color::palettes::css::ORANGE_RED;
-use bevy::color::palettes::tailwind::{CYAN_700, YELLOW_300, YELLOW_700};
+use bevy::color::palettes::css::{ORANGE, ORANGE_RED};
+use bevy::color::palettes::tailwind::{CYAN_600, CYAN_700, YELLOW_300, YELLOW_700};
 use bevy::prelude::{Color, Gizmos, Isometry2d, Rot2, Vec2, Vec3};
-use bevy_vector_shapes::prelude::{RectPainter, ShapePainter};
+use bevy_vector_shapes::prelude::{DiscPainter, RectPainter, ShapePainter};
 use crate::world::direction::Direction;
 
 #[derive(Clone,Copy,PartialEq,Eq,Default)]
@@ -11,7 +11,8 @@ pub enum BlockState{
     Empty,
     Copper,
     Electricity([bool;4]),
-    Diode(Direction,bool)
+    Diode(Direction,bool),
+    Button(bool)
 }
 
 impl BlockState {
@@ -28,6 +29,7 @@ impl BlockState {
                     Color::from(YELLOW_700)
                 }
             },
+            BlockState::Button(act) => {if *act {  Color::from(CYAN_600) } else {Color::from(ORANGE)}}
         }
     }
     pub fn draw_preview(&self, world_pos: Vec2, gizmos: &mut Gizmos) {
@@ -47,6 +49,9 @@ impl BlockState {
             BlockState::Diode(dir,_) => {
                 gizmos.rect_2d(world_pos.floor().add(Vec2::new(0.5,0.5)), Vec2::ONE, self.get_color());
                 self.draw_arrows(world_pos, gizmos, &dir.to_bool_array(), true, self.get_color());
+            }
+            BlockState::Button(_) => {
+                gizmos.circle_2d(world_pos.floor().add(Vec2::new(0.5,0.5)), std::f32::consts::SQRT_2/2.0, self.get_color());
             }
         }
     }
@@ -78,6 +83,20 @@ impl BlockState {
                     self.draw_arrows(world_pos, gizmos, &dir.to_bool_array(), true, Color::BLACK);
                 }
             }
+            BlockState::Button(act) => {
+                painter.color = self.get_color();
+                painter.translate(Vec3::new(world_pos.x.floor() + 0.5, world_pos.y.floor() + 0.5, 2.0));
+                painter.circle(std::f32::consts::SQRT_2/2.0);
+                if !act {
+                    painter.color = Color::from(ORANGE_RED);
+                } else {
+                    painter.color = Color::from(CYAN_700);
+                }
+                painter.hollow = true;
+                painter.circle(std::f32::consts::SQRT_2/2.0);
+                painter.reset();
+
+            }
         }
     }
 
@@ -94,7 +113,7 @@ impl BlockState {
         }
     }
 
-    pub(crate) fn compute(&self, surround_states: [&BlockState;4]) -> BlockState {
+    pub(crate) fn compute(&self, surround_states: [&BlockState;4],interact: bool) -> BlockState {
         match self {
             BlockState::Empty => *self,
             BlockState::Copper => {
@@ -129,6 +148,7 @@ impl BlockState {
                 }
                 BlockState::Diode(*dir,surround_states[((*dir as usize)+2)%4].is_activated_for(&dir.opposite()))
             }
+            BlockState::Button(_) => BlockState::Button(interact)
         }
     }
 
@@ -142,14 +162,16 @@ impl BlockState {
                 dir.contains(&true)
             },
             BlockState::Diode(dir, act) => *act && *dir == request_from.opposite(),
-            _ => false,
+            BlockState::Empty => false,
+            BlockState::Copper => false,
+            BlockState::Button(act) => *act
         }
     }
 
     pub fn rotate(&self,clockwise: bool) -> BlockState {
         match self {
-            BlockState::Empty => {*self}
-            BlockState::Copper => {*self}
+            BlockState::Empty => *self,
+            BlockState::Copper => *self,
             BlockState::Electricity(dir) => {
                 let x: Vec<Direction> = Direction::from_bool_array(*dir).iter()
                     .map(|dir| Direction::rotate(dir,clockwise))
@@ -162,6 +184,7 @@ impl BlockState {
             BlockState::Diode(dir,a) => {
                 BlockState::Diode(Direction::rotate(dir,clockwise), *a)
             }
+            BlockState::Button(_) => *self
         }
     }
 }

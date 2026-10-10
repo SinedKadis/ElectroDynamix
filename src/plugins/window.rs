@@ -52,6 +52,7 @@ fn setup(mut commands: Commands) {
             button_bundle(String::from("Copper")),
             button_bundle(String::from("Electricity")),
             button_bundle(String::from("Diode")),
+            button_bundle(String::from("Button")),
         ],
     ));
     commands.spawn((

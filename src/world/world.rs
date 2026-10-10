@@ -93,12 +93,16 @@ pub(crate) struct UpdateTimer(pub(crate) Timer);
 
 fn update_blocks(mut game_state: ResMut<GameState>,
     mut timer: ResMut<UpdateTimer>,
-    time: Res<Time>) {
+    time: Res<Time>, 
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    window: Single<&Window>,
+    camera_query: Single<(&Camera, &GlobalTransform)>,
+) {
     if timer.0.tick(time.delta()).just_finished() {
         let new_game_map : GameMap = match &game_state.state {
             GameStates::Drawing => {return;}
             GameStates::Compiling => {return;}
-            GameStates::Executing(game_map) => {game_map.update()}
+            GameStates::Executing(game_map) => {game_map.update(mouse_button_input, window, camera_query)}
             GameStates::Paused(_) => {return;}
         };
         game_state.state = GameStates::Executing(new_game_map);
