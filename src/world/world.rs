@@ -26,9 +26,12 @@ fn draw_preview(
     window: Single<&Window>,
     mut gizmos: Gizmos,
     config: Res<Config>,
-    state: Res<SelectedState>
+    state: Res<SelectedState>,
+    game_state: Res<GameState>
 ) {
     if !config.draw_grid { return; }
+    if game_state.state != GameStates::Drawing {return;}
+
     let (camera, camera_transform) = *camera_query;
 
     if let Some(cursor_position) = window.cursor_position()
