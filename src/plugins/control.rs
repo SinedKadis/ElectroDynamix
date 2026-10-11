@@ -1,5 +1,5 @@
 use crate::plugins::config::Config;
-use crate::plugins::window::{CustomUiData, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
+use crate::plugins::window::{popup_bundle, CustomUiData, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
 use crate::world::direction::Direction;
 use crate::world::world::{BlockState, GameState, GameStates, SelectedState, UpdateTimer};
 use crate::world::{game_map, world};
@@ -31,6 +31,19 @@ impl Plugin for ControlPlugin {
 
 
 const MOUSE_SENSITIVITY: f32 = 1f32;
+const HELP_MESSAGE: &'static str = "\
+F1 - Help Popup
+F5 - Save
+F9 - Load
+1-9 - Different blocks
+LMB - Place block
+MMB - Pick block
+Scroll - Rotate block
+Ctrl+Scroll - Zoom
+WASD - Move camera
+SPACE - Compile/Pause/Resume
+ESC - Terminate(back to drawing)
+";
 
 fn controls(
     camera_query: Single<(&mut Transform, &mut Projection)>,
@@ -40,6 +53,7 @@ fn controls(
     mut game_state: ResMut<GameState>,
     mut sel_state: ResMut<SelectedState>,
     mut blocks: ResMut<DrewBlocks>,
+    mut commands: Commands,
 ) {
 
     let (mut transform, mut projection)
@@ -119,6 +133,9 @@ fn controls(
                 Ok(save) => {blocks.block_data = save.block_data;}
                 Err(e) => {error!("Load error: {e}");}
             }
+        }
+        if input.just_pressed(KeyCode::F1) {
+            commands.spawn(popup_bundle(HELP_MESSAGE.into()));
         }
     }
 }
@@ -251,6 +268,7 @@ fn button_system(
     mut selection: ResMut<SelectedState>,
     mut game_state: ResMut<GameState>,
     mut blocks: ResMut<DrewBlocks>,
+    mut commands: Commands,
 ) {
     for (entity, interaction, mut color, mut border_color, mut button, button_data) in &mut interaction_query {
         match *interaction {
@@ -291,7 +309,9 @@ fn button_system(
                             Ok(save) => {blocks.block_data = save.block_data;}
                             Err(e) => {error!("Load error: {e}");}
                         }
-                    }
+                    },
+                    "Help" => { commands.spawn(popup_bundle(HELP_MESSAGE.into())); }
+
                     other => {panic!("Unknown button: {}", other)}
                 }
                 button.set_changed();

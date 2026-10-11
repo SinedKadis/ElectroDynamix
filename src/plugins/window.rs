@@ -13,7 +13,7 @@ impl Plugin for UiPlugin {
         app.add_systems(Startup, setup);
         app.add_systems(PostStartup, setup_camera);
         app.add_systems(Update, (update_ui_elements_visibility,
-                                 update_slider_visuals));
+                                 update_slider_visuals,close_popup));
     }
 }
 
@@ -67,6 +67,7 @@ fn setup(mut commands: Commands) {
             ..default()
         },
         children![
+            button_bundle(String::from("Help")),
             button_bundle(String::from("Toggle Preview")),
             button_bundle(String::from("Toggle Arrows"))
         ],
@@ -255,4 +256,90 @@ fn slider_bundle(text: String, min: f32, max: f32, initial: f32) -> impl Bundle 
 #[derive(Component)]
 pub struct CustomUiData {
     pub(crate) name: String,
+}
+
+#[derive(Component)]
+struct Popup;
+
+#[derive(Component)]
+struct PopupCloseButton;
+
+pub fn popup_bundle(message: String) -> impl Bundle {
+    (
+        Popup,
+        GlobalZIndex(100),
+        Node {
+            position_type: PositionType::Absolute,
+            width: percent(100.0),
+            height: percent(100.0),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)),
+        children![(
+            // сама панель
+            Node {
+                width: px(360.0),
+                padding: UiRect::all(px(16.0)),
+                border: UiRect::all(px(2.0)),
+                flex_direction: FlexDirection::Column,
+                row_gap: px(12.0),
+                border_radius: BorderRadius::all(px(8.0)),
+                ..default()
+            },
+            BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+            BorderColor::all(Color::WHITE),
+            children![
+                // строка с крестиком, прижатым вправо
+                (
+                    Node {
+                        width: percent(100.0),
+                        justify_content: JustifyContent::FlexEnd,
+                        ..default()
+                    },
+                    children![(
+                        PopupCloseButton,
+                        Button,
+                        Node {
+                            width: px(26.0),
+                            height: px(26.0),
+                            border: UiRect::all(px(2.0)),
+                            justify_content: JustifyContent::Center,
+                            align_items: AlignItems::Center,
+                            border_radius: BorderRadius::all(px(4.0)),
+                            ..default()
+                        },
+                        BackgroundColor(NORMAL_BUTTON),
+                        BorderColor::all(Color::WHITE),
+                        children![(
+                            Text::new("X"),
+                            TextFont { font_size: FontSize::Px(14.0), ..default() },
+                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                        )],
+                    )],
+                ),
+                // текст попапа (переносится по ширине панели сам)
+                (
+                    Text::new(message),
+                    TextFont { font_size: FontSize::Px(14.0), ..default() },
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                ),
+            ],
+        )],
+    )
+}
+
+fn close_popup(
+    buttons: Query<&Interaction, (Changed<Interaction>, With<PopupCloseButton>)>,
+    popups: Query<Entity, With<Popup>>,
+    input: Res<ButtonInput<KeyCode>>,
+    mut commands: Commands,
+) {
+    let clicked = buttons.iter().any(|i| *i == Interaction::Pressed);
+    if clicked || input.just_pressed(KeyCode::Escape) {
+        for e in &popups {
+            commands.entity(e).despawn();
+        }
+    }
 }
