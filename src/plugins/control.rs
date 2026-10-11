@@ -101,7 +101,7 @@ fn controls(
             sel_state.state = BlockState::Electricity([false,false,true,false]);
         }
         if input.just_pressed(KeyCode::Digit4) {
-            sel_state.state = BlockState::Diode(Direction::Right,false);
+            sel_state.state = BlockState::Diode(Direction::Right,false,false);
         }
     }
 }
@@ -247,7 +247,7 @@ fn button_system(
                     "Rubber" => selection.state = BlockState::Empty,
                     "Copper" => selection.state = BlockState::Copper,
                     "Electricity" => selection.state = BlockState::Electricity([false,false,true,false]),
-                    "Diode" => selection.state = BlockState::Diode(Direction::Right,false),
+                    "Diode" => selection.state = BlockState::Diode(Direction::Right,false,false),
                     "Compile" => game_state.state = GameStates::Compiling,
                     "Terminate" => game_state.state = GameStates::Drawing,
                     "Pause" => {

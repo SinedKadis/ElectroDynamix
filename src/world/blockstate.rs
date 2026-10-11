@@ -1,5 +1,5 @@
 use std::ops::Add;
-use bevy::color::palettes::css::{ORANGE, ORANGE_RED};
+use bevy::color::palettes::css::{ORANGE, ORANGE_RED, RED};
 use bevy::color::palettes::tailwind::{CYAN_600, CYAN_700, YELLOW_300, YELLOW_700};
 use bevy::prelude::{Color, Gizmos, Isometry2d, Rot2, Vec2, Vec3};
 use bevy_vector_shapes::prelude::{DiscPainter, RectPainter, ShapePainter};
@@ -11,7 +11,7 @@ pub enum BlockState{
     Empty,
     Copper,
     Electricity([bool;4]),
-    Diode(Direction,bool),
+    Diode(Direction,bool,bool),
     Button(bool)
 }
 
@@ -22,8 +22,10 @@ impl BlockState {
             BlockState::Empty => Color::NONE,
             BlockState::Copper => Color::from(ORANGE_RED),
             BlockState::Electricity(_) => Color::from(CYAN_700),
-            BlockState::Diode(_,act) => {
-                if *act{
+            BlockState::Diode(_,act,blocked) => {
+                if *blocked {
+                    Color::from(RED)
+                } else if *act{
                     Color::from(YELLOW_300)
                 }else{
                     Color::from(YELLOW_700)
@@ -46,7 +48,7 @@ impl BlockState {
                 gizmos.rect_2d(world_pos.floor().add(Vec2::new(0.5,0.5)), Vec2::ONE, self.get_color());
                 self.draw_arrows(world_pos, gizmos, directions, true, self.get_color());
             }
-            BlockState::Diode(dir,_) => {
+            BlockState::Diode(dir,_,_) => {
                 gizmos.rect_2d(world_pos.floor().add(Vec2::new(0.5,0.5)), Vec2::ONE, self.get_color());
                 self.draw_arrows(world_pos, gizmos, &dir.to_bool_array(), true, self.get_color());
             }
@@ -74,7 +76,7 @@ impl BlockState {
                     self.draw_arrows(world_pos, gizmos, directions, false, Color::WHITE);
                 }
             }
-            BlockState::Diode(dir,_) => {
+            BlockState::Diode(dir,_,_) => {
                 painter.color = self.get_color();
                 painter.translate(Vec3::new(world_pos.x.floor() + 0.5, world_pos.y.floor() + 0.5, 1.0));
                 painter.rect(Vec2::splat(1.0));
@@ -137,16 +139,16 @@ impl BlockState {
                 }
                 BlockState::Copper
             }
-            BlockState::Diode(dir,_act) => {
+            BlockState::Diode(dir,_act,_) => {
                 let right = dir.rotate(true);
                 if surround_states[right as usize].is_activated_for(&right) {
-                    return BlockState::Diode(*dir,false)
+                    return BlockState::Diode(*dir,false,true)
                 }
                 let left = dir.rotate(false);
                 if surround_states[left as usize].is_activated_for(&left) {
-                    return BlockState::Diode(*dir,false)
+                    return BlockState::Diode(*dir,false,true)
                 }
-                BlockState::Diode(*dir,surround_states[((*dir as usize)+2)%4].is_activated_for(&dir.opposite()))
+                BlockState::Diode(*dir,surround_states[((*dir as usize)+2)%4].is_activated_for(&dir.opposite()),false)
             }
             BlockState::Button(_) => BlockState::Button(false)
         }
@@ -161,7 +163,7 @@ impl BlockState {
                 }
                 dir.contains(&true)
             },
-            BlockState::Diode(dir, act) => *act && *dir == request_from.opposite(),
+            BlockState::Diode(dir, act,blocked) => !blocked && *act && *dir == request_from.opposite(),
             BlockState::Empty => false,
             BlockState::Copper => false,
             BlockState::Button(act) => *act
@@ -181,8 +183,8 @@ impl BlockState {
                 }
                 *self
             },
-            BlockState::Diode(dir,a) => {
-                BlockState::Diode(Direction::rotate(dir,clockwise), *a)
+            BlockState::Diode(dir,a,b) => {
+                BlockState::Diode(Direction::rotate(dir,clockwise), *a,*b)
             }
             BlockState::Button(_) => *self
         }
