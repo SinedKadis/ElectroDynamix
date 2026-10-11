@@ -1,5 +1,6 @@
 use crate::plugins::config::Config;
 pub(crate) use crate::world::blockstate::BlockState;
+use crate::world::drew_game_map::DrewBlocks;
 use crate::world::game_map::GameMap;
 use bevy::prelude::MouseButton::Left;
 use bevy::prelude::*;
@@ -12,7 +13,7 @@ impl Plugin for WorldPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(PostUpdate, draw_preview.after(TransformSystems::Propagate));
         app.add_plugins(Shape2dPlugin::default());
-        app.insert_resource(Blocks{ block_data: Vec::new()});
+        app.insert_resource(DrewBlocks { block_data: Vec::new()});
         app.insert_resource(GameState{state: GameStates::Drawing});
         app.insert_resource(UpdateTimer(Timer::from_seconds(1.0, TimerMode::Repeating)));
         app.add_systems(Update, draw_blocks);
@@ -43,7 +44,7 @@ fn draw_preview(
     }
 }
 fn draw_blocks(mut painter: ShapePainter,
-               blocks: Res<Blocks>,
+               blocks: Res<DrewBlocks>,
                mut gizmos: Gizmos,
                config : Res<Config>,
                game_state: Res<GameState>) {
@@ -66,12 +67,6 @@ fn draw_blocks(mut painter: ShapePainter,
 
 
 }
-
-#[derive(Resource)]
-pub struct Blocks{
-    pub(crate) block_data: Vec<(i32, i32, BlockState)>,
-}
-
 
 #[derive(Resource)]
 pub struct SelectedState{

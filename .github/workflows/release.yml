@@ -1,0 +1,60 @@
+name: release
+on:
+  push:
+    tags: ["v*"]
+
+env:
+  BIN_NAME: ElectroDynamix   # имя из [package] name в Cargo.toml
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: macos-latest        # Apple Silicon
+            target: aarch64-apple-darwin
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Package (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir out
+          cp target/${{ matrix.target }}/release/$BIN_NAME out/
+          cp -r assets out/
+          tar -czf $BIN_NAME-${{ matrix.target }}.tar.gz -C out .
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          mkdir out
+          cp target/${{ matrix.target }}/release/$env:BIN_NAME.exe out/
+          cp -r assets out/
+          Compress-Archive -Path out/* -DestinationPath "$env:BIN_NAME-${{ matrix.target }}.zip"
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            *.tar.gz
+            *.zip

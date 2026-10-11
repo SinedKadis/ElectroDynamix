@@ -1,7 +1,7 @@
 use crate::plugins::config::Config;
 use crate::plugins::window::{CustomUiData, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
 use crate::world::direction::Direction;
-use crate::world::world::{BlockState, Blocks, GameState, GameStates, SelectedState, UpdateTimer};
+use crate::world::world::{BlockState, GameState, GameStates, SelectedState, UpdateTimer};
 use crate::world::{game_map, world};
 use bevy::color::palettes::basic::RED;
 use bevy::input::mouse::AccumulatedMouseScroll;
@@ -11,6 +11,7 @@ use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
 use bevy::ui_widgets::SliderValue;
 use std::time::Duration;
+use crate::world::drew_game_map::DrewBlocks;
 
 pub struct ControlPlugin;
 
@@ -38,6 +39,7 @@ fn controls(
     accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
     mut game_state: ResMut<GameState>,
     mut sel_state: ResMut<SelectedState>,
+    mut blocks: ResMut<DrewBlocks>,
 ) {
 
     let (mut transform, mut projection)
@@ -106,6 +108,18 @@ fn controls(
         if input.just_pressed(KeyCode::Digit5) {
             sel_state.state = BlockState::Bridge([false;4]);
         }
+        if input.just_pressed(KeyCode::F5) {
+            if let Err(e) = blocks.save("save.json") {
+                error!("Save error: {e}");
+            }
+        }
+        if input.just_pressed(KeyCode::F9) {
+            let loaded = DrewBlocks::load("save.json");
+            match loaded {
+                Ok(save) => {blocks.block_data = save.block_data;}
+                Err(e) => {error!("Load error: {e}");}
+            }
+        }
     }
 }
 
@@ -124,7 +138,7 @@ fn left_mouse_click(
     >,
     game_state: Res<GameState>,
     window: Single<&Window>,
-    mut blocks: ResMut<Blocks>,
+    mut blocks: ResMut<DrewBlocks>,
     camera_query: Single<(&Camera, &GlobalTransform)>,
 
 ) {
@@ -176,7 +190,7 @@ fn middle_mouse_click(
     window: Single<&Window>,
     camera_query: Single<(&Camera, &GlobalTransform)>,
     game_state: Res<GameState>,
-    blocks: Res<Blocks>,
+    blocks: Res<DrewBlocks>,
     mut sel_state: ResMut<SelectedState>,
 
 ){
@@ -236,6 +250,7 @@ fn button_system(
     mut config: ResMut<Config>,
     mut selection: ResMut<SelectedState>,
     mut game_state: ResMut<GameState>,
+    mut blocks: ResMut<DrewBlocks>,
 ) {
     for (entity, interaction, mut color, mut border_color, mut button, button_data) in &mut interaction_query {
         match *interaction {
@@ -265,6 +280,18 @@ fn button_system(
                     }
                     "Button" => selection.state = BlockState::Button(false),
                     "Bridge" => selection.state = BlockState::Bridge([false;4]),
+                    "Save" => {
+                        if let Err(e) = blocks.save("save.json") {
+                            error!("Save error: {e}");
+                        }
+                    }
+                    "Load" => {
+                        let loaded = DrewBlocks::load("save.json");
+                        match loaded {
+                            Ok(save) => {blocks.block_data = save.block_data;}
+                            Err(e) => {error!("Load error: {e}");}
+                        }
+                    }
                     other => {panic!("Unknown button: {}", other)}
                 }
                 button.set_changed();
@@ -305,7 +332,7 @@ fn slider_system(
 }
 
 fn start_game(mut game_state: ResMut<GameState>,
-        blocks: Res<Blocks>) {
+        blocks: Res<DrewBlocks>) {
     if game_state.state != GameStates::Compiling { return; }
 
     if blocks.block_data.is_empty() {

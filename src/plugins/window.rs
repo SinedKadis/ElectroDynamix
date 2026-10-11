@@ -5,9 +5,9 @@ use bevy::
 prelude::*;
 use bevy::ui_widgets::{Slider, SliderRange, SliderThumb, SliderValue, TrackClick, observe, slider_self_update};
 
-pub struct WindowPlugin;
+pub struct UiPlugin;
 
-impl Plugin for WindowPlugin {
+impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<InputFocus>();
         app.add_systems(Startup, setup);
@@ -43,7 +43,7 @@ fn setup(mut commands: Commands) {
             left: px(12.0),
             bottom: px(12.0),
             flex_direction: FlexDirection::Row,
-            align_items: AlignItems::Center,
+            align_items: AlignItems::Start,
             column_gap: px(6.0),
             ..default()
         },
@@ -62,7 +62,7 @@ fn setup(mut commands: Commands) {
             left: px(12.0),
             top: px(12.0),
             flex_direction: FlexDirection::Column,
-            align_items: AlignItems::Center,
+            align_items: AlignItems::Start,
             row_gap: px(3.0),
             ..default()
         },
@@ -78,7 +78,7 @@ fn setup(mut commands: Commands) {
             right: px(12.0),
             top: px(12.0),
             flex_direction: FlexDirection::Column,
-            align_items: AlignItems::Center,
+            align_items: AlignItems::End,
             row_gap: px(3.0),
             ..default()
         },
@@ -96,14 +96,18 @@ fn setup(mut commands: Commands) {
             right: px(12.0),
             bottom: px(12.0),
             flex_direction: FlexDirection::Column,
-            align_items: AlignItems::Center,
+            align_items: AlignItems::End,
             row_gap: px(3.0),
             ..default()
         },
         children![
-            slider_bundle(String::from("Speed"),0f32,1f32,0f32)
+            slider_bundle(String::from("Speed"),0f32,1f32,0f32),
+            button_bundle(String::from("Save")),
+            button_bundle(String::from("Load"))
         ],
-    ));commands.spawn((
+    ));
+
+    commands.spawn((
         Node {
             position_type: PositionType::Absolute,
             left: px(12.0),

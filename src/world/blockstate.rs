@@ -3,9 +3,10 @@ use bevy::color::palettes::css::{ORANGE, ORANGE_RED, RED};
 use bevy::color::palettes::tailwind::{CYAN_600, CYAN_700, YELLOW_300, YELLOW_700};
 use bevy::prelude::{Color, Gizmos, Isometry2d, Rot2, Vec2, Vec3};
 use bevy_vector_shapes::prelude::{DiscPainter, RectPainter, ShapePainter};
+use serde::{Deserialize, Serialize};
 use crate::world::direction::Direction;
 
-#[derive(Clone,Copy,PartialEq,Eq,Default)]
+#[derive(Clone,Copy,PartialEq,Eq,Default, Serialize, Deserialize)]
 pub enum BlockState{
     #[default]
     Empty,

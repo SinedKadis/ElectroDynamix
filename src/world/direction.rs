@@ -1,6 +1,7 @@
 use bevy::math::Vec2;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone,Copy,PartialEq,Eq)]
+#[derive(Clone,Copy,PartialEq,Eq, Serialize, Deserialize)]
 pub enum Direction {
     Left,
     Up,
