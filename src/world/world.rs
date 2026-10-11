@@ -116,6 +116,10 @@ fn update_blocks(mut game_state: ResMut<GameState>,
                     let new_game_map = game.update(game.to_game_pos(world_pos.x.floor() as i32, world_pos.y.floor() as i32));
                     game_state.state = GameStates::Executing(new_game_map);
                 }
+                if let GameStates::Paused(game) = &game_state.state {
+                    let new_game_map = game.update(game.to_game_pos(world_pos.x.floor() as i32, world_pos.y.floor() as i32));
+                    game_state.state = GameStates::Paused(new_game_map);
+                }
             }
         }
     }
