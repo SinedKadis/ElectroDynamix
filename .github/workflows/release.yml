@@ -12,6 +12,7 @@ env:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: ubuntu-latest
@@ -44,7 +45,6 @@ jobs:
         run: |
           mkdir out
           cp target/${{ matrix.target }}/release/$BIN_NAME out/
-#          cp -r assets out/
           tar -czf $BIN_NAME-${{ matrix.target }}.tar.gz -C out .
 
       - name: Package (Windows)
@@ -53,7 +53,6 @@ jobs:
         run: |
           mkdir out
           cp target/${{ matrix.target }}/release/$env:BIN_NAME.exe out/
-#          cp -r assets out/
           Compress-Archive -Path out/* -DestinationPath "$env:BIN_NAME-${{ matrix.target }}.zip"
 
       - uses: softprops/action-gh-release@v2
