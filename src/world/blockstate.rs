@@ -12,7 +12,8 @@ pub enum BlockState{
     Copper,
     Electricity([bool;4]),
     Diode(Direction,bool,bool),
-    Button(bool)
+    Button(bool),
+    Bridge([bool;4])
 }
 
 impl BlockState {
@@ -32,6 +33,13 @@ impl BlockState {
                 }
             },
             BlockState::Button(act) => {if *act {  Color::from(CYAN_600) } else {Color::from(ORANGE)}}
+            BlockState::Bridge(dir) => {
+                if dir.contains(&true) {
+                    Color::from(CYAN_700)
+                } else {
+                    Color::from(ORANGE_RED)
+                }
+            }
         }
     }
     pub fn draw_preview(&self, world_pos: Vec2, gizmos: &mut Gizmos) {
@@ -54,6 +62,14 @@ impl BlockState {
             }
             BlockState::Button(_) => {
                 gizmos.circle_2d(world_pos.floor().add(Vec2::new(0.5,0.5)), std::f32::consts::SQRT_2/2.0, self.get_color());
+            }
+            BlockState::Bridge(dir) => {
+                let color = self.get_color();
+                gizmos.rect_2d(world_pos.floor().add(Vec2::new(0.5, 0.5)), Vec2::ONE, color);
+                gizmos.cross_2d(Isometry2d::new(world_pos.floor().add(Vec2::new(0.5,0.5)),Rot2::degrees(45.0)),
+                                0.5,color);
+                self.draw_arrows(world_pos, gizmos, &dir, true, self.get_color());
+
             }
         }
     }
@@ -99,6 +115,22 @@ impl BlockState {
                 painter.reset();
 
             }
+            BlockState::Bridge(dir) => {
+                painter.color = self.get_color();
+                painter.translate(Vec3::new(world_pos.x.floor() + 0.5, world_pos.y.floor() + 0.5, 1.0));
+                painter.rect(Vec2::splat(1.0));
+                if dir.contains(&true) {
+                    painter.color = Color::from(CYAN_600)
+                } else {
+                    painter.color = Color::from(ORANGE)
+                }
+                painter.hollow = true;
+                painter.rect(Vec2::splat(1.0));
+                painter.reset();
+                if draw_arrows {
+                    self.draw_arrows(world_pos, gizmos, &dir, false, Color::BLACK);
+                }
+            }
         }
     }
 
@@ -128,11 +160,11 @@ impl BlockState {
                 }
                 BlockState::Copper
             }
-            BlockState::Electricity(directions) => {
+            BlockState::Electricity(_) => {
                 let mut new_dir: [bool;4] = [false;4];
-                for (i, direction) in Direction::from_bool_array(*directions).iter().enumerate() {
+                for (i, direction) in Direction::DIRECTIONS.iter().enumerate() {
                     if *direction == Direction::None { continue }
-                    new_dir[i] = surround_states[(i+2)%4].is_activated_for(&direction.opposite());
+                    new_dir[(i+2)%4] = surround_states[i].is_activated_for(direction);
                 }
                 if new_dir.contains(&true) {
                     return  BlockState::Electricity(new_dir)
@@ -150,7 +182,14 @@ impl BlockState {
                 }
                 BlockState::Diode(*dir,surround_states[((*dir as usize)+2)%4].is_activated_for(&dir.opposite()),false)
             }
-            BlockState::Button(_) => BlockState::Button(false)
+            BlockState::Button(_) => BlockState::Button(false),
+            BlockState::Bridge(_) => {
+                let mut directions = [false;4];
+                for (i, dir) in Direction::DIRECTIONS.iter().enumerate() {
+                    directions[(i+2)%4] = surround_states[i].is_activated_for(dir)
+                }
+                BlockState::Bridge(directions)
+            }
         }
     }
 
@@ -166,7 +205,10 @@ impl BlockState {
             BlockState::Diode(dir, act,blocked) => !blocked && *act && *dir == request_from.opposite(),
             BlockState::Empty => false,
             BlockState::Copper => false,
-            BlockState::Button(act) => *act
+            BlockState::Button(act) => *act,
+            BlockState::Bridge(dir) => {
+                dir[(*request_from as usize+2)%4]
+            }
         }
     }
 
@@ -186,7 +228,16 @@ impl BlockState {
             BlockState::Diode(dir,a,b) => {
                 BlockState::Diode(Direction::rotate(dir,clockwise), *a,*b)
             }
-            BlockState::Button(_) => *self
+            BlockState::Button(_) => *self,
+            BlockState::Bridge(dir) => {
+                let x: Vec<Direction> = Direction::from_bool_array(*dir).iter()
+                    .map(|dir| Direction::rotate(dir,clockwise))
+                    .collect();
+                if let Some(new_dir) = x.as_array() {
+                    return BlockState::Bridge(Direction::bool_array_from_array(*new_dir));
+                }
+                *self
+            },
         }
     }
 }

@@ -103,6 +103,9 @@ fn controls(
         if input.just_pressed(KeyCode::Digit4) {
             sel_state.state = BlockState::Diode(Direction::Right,false,false);
         }
+        if input.just_pressed(KeyCode::Digit5) {
+            sel_state.state = BlockState::Bridge([false;4]);
+        }
     }
 }
 
@@ -261,6 +264,7 @@ fn button_system(
                         }
                     }
                     "Button" => selection.state = BlockState::Button(false),
+                    "Bridge" => selection.state = BlockState::Bridge([false;4]),
                     other => {panic!("Unknown button: {}", other)}
                 }
                 button.set_changed();
