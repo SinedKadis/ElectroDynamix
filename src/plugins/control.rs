@@ -12,6 +12,7 @@ use bevy::prelude::*;
 use bevy::ui_widgets::SliderValue;
 use std::time::Duration;
 use crate::world::drew_game_map::DrewBlocks;
+use crate::world::world::Selection::Block;
 
 pub struct ControlPlugin;
 
@@ -19,7 +20,7 @@ impl Plugin for ControlPlugin {
     fn build(&self, app: &mut App) {
         // app.add_systems(Startup, setup);
         app.add_systems(FixedUpdate, start_game);
-        app.insert_resource(SelectedState{ state: BlockState::Copper , size: 1});
+        app.insert_resource(SelectedState{ state: Block(BlockState::Copper)});
         app.add_systems(Update, (controls, button_system, slider_system, left_mouse_click,middle_mouse_click));
     }
 }
@@ -69,10 +70,12 @@ fn controls(
                     projection2d.scale *= powf(0.25f32, time.delta_secs() * MOUSE_SENSITIVITY * 2f32);
                 }
             } else {
-                if delta.y < 0.0  {
-                    sel_state.state = sel_state.state.rotate(true);
-                } else {
-                    sel_state.state = sel_state.state.rotate(false);
+                if let Block(state) = sel_state.state {
+                    if delta.y < 0.0  {
+                        sel_state.state = Block(state.rotate(true))
+                    } else {
+                        sel_state.state = Block(state.rotate(false))
+                    }
                 }
             }
         }
@@ -107,20 +110,22 @@ fn controls(
                 GameStates::Paused(_) => {game_state.state = GameStates::Drawing;}
             }
         }
-        if input.just_pressed(KeyCode::Digit1) {
-            sel_state.state = BlockState::Empty;
-        }
-        if input.just_pressed(KeyCode::Digit2) {
-            sel_state.state = BlockState::Copper;
-        }
-        if input.just_pressed(KeyCode::Digit3) {
-            sel_state.state = BlockState::Electricity([false,false,true,false]);
-        }
-        if input.just_pressed(KeyCode::Digit4) {
-            sel_state.state = BlockState::Diode(Direction::Right,false,false);
-        }
-        if input.just_pressed(KeyCode::Digit5) {
-            sel_state.state = BlockState::Bridge([false;4]);
+        if let Block(_) = sel_state.state {
+            if input.just_pressed(KeyCode::Digit1) {
+                sel_state.state = Block(BlockState::Empty);
+            }
+            if input.just_pressed(KeyCode::Digit2) {
+                sel_state.state = Block(BlockState::Copper);
+            }
+            if input.just_pressed(KeyCode::Digit3) {
+                sel_state.state = Block(BlockState::Electricity([false, false, true, false]));
+            }
+            if input.just_pressed(KeyCode::Digit4) {
+                sel_state.state = Block(BlockState::Diode(Direction::Right, false, false));
+            }
+            if input.just_pressed(KeyCode::Digit5) {
+                sel_state.state = Block(BlockState::Bridge([false;4]));
+            }
         }
         if input.just_pressed(KeyCode::F5) {
             if let Err(e) = blocks.save("save.json") {
@@ -157,7 +162,7 @@ fn left_mouse_click(
     window: Single<&Window>,
     mut blocks: ResMut<DrewBlocks>,
     camera_query: Single<(&Camera, &GlobalTransform)>,
-
+    sliders: Query<(&SliderValue,&CustomUiData)>
 ) {
     if !mouse_button_input.pressed(MouseButton::Left) {
         return;
@@ -186,20 +191,23 @@ fn left_mouse_click(
         return;
     };
 
-    for pos in world::get_positions_in_range(world_pos.floor().as_ivec2(), sel_state.size-1) {
-        let x = pos.x;
-        let y = pos.y;
+    if let Block(state) = sel_state.state {
+        for pos in world::get_positions_in_range(world_pos.floor().as_ivec2(), get_brush_size(sliders)-1) {
+            let x = pos.x;
+            let y = pos.y;
 
-        if let Some(existing_block) = blocks
-            .block_data
-            .iter_mut()
-            .find(|(bx, by, _)| *bx == x && *by == y)
-        {
-            existing_block.2 = sel_state.state;
-        } else {
-            blocks.block_data.push((x, y, sel_state.state));
+            if let Some(existing_block) = blocks
+                .block_data
+                .iter_mut()
+                .find(|(bx, by, _)| *bx == x && *by == y)
+            {
+                existing_block.2 = state;
+            } else {
+                blocks.block_data.push((x, y, state));
+            }
         }
     }
+
 }
 
 fn middle_mouse_click(
@@ -224,33 +232,35 @@ fn middle_mouse_click(
     let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position) else {
         return;
     };
-    let x = world_pos.floor().as_ivec2().x;
-    let y = world_pos.floor().as_ivec2().y;
-    match &game_state.state {
-        GameStates::Drawing => {
-            if let Some(existing_block) = blocks
-                .block_data
-                .iter()
-                .find(|(bx, by, _)| *bx == x && *by == y)
-            {
-                sel_state.state = existing_block.2;
-            } else {
-                sel_state.state = BlockState::Empty;
+    if let Block(_) = sel_state.state {
+        let x = world_pos.floor().as_ivec2().x;
+        let y = world_pos.floor().as_ivec2().y;
+        match &game_state.state {
+            GameStates::Drawing => {
+                if let Some(existing_block) = blocks
+                    .block_data
+                    .iter()
+                    .find(|(bx, by, _)| *bx == x && *by == y)
+                {
+                    sel_state.state = Block(existing_block.2);
+                } else {
+                    sel_state.state = Block(BlockState::Empty);
+                }
             }
-        }
-        GameStates::Compiling => {}
-        GameStates::Executing(game) => {
-            if let Some(block) = game.get(x, y) {
-                sel_state.state = *block;
-            } else {
-                sel_state.state = BlockState::Empty;
+            GameStates::Compiling => {}
+            GameStates::Executing(game) => {
+                if let Some(block) = game.get(x, y) {
+                    sel_state.state = Block(*block);
+                } else {
+                    sel_state.state = Block(BlockState::Empty);
+                }
             }
-        }
-        GameStates::Paused(game) => {
-            if let Some(block) = game.get(x, y) {
-                sel_state.state = *block;
-            } else {
-                sel_state.state = BlockState::Empty;
+            GameStates::Paused(game) => {
+                if let Some(block) = game.get(x, y) {
+                    sel_state.state = Block(*block);
+                } else {
+                    sel_state.state = Block(BlockState::Empty);
+                }
             }
         }
     }
@@ -280,12 +290,14 @@ fn button_system(
                 match button_data.name.as_str() {
                     "Toggle Preview" => config.draw_grid = !config.draw_grid,
                     "Toggle Arrows" => config.draw_arrows = !config.draw_arrows,
-                    "Rubber" => selection.state = BlockState::Empty,
-                    "Copper" => selection.state = BlockState::Copper,
-                    "Electricity" => selection.state = BlockState::Electricity([false,false,true,false]),
-                    "Diode" => selection.state = BlockState::Diode(Direction::Right,false,false),
+                    "Rubber" => selection.state = Block(BlockState::Empty),
+                    "Copper" => selection.state = Block(BlockState::Copper),
+                    "Electricity" => selection.state = Block(BlockState::Electricity([false,false,true,false])),
+                    "Diode" => selection.state = Block(BlockState::Diode(Direction::Right,false,false)),
                     "Compile" => game_state.state = GameStates::Compiling,
                     "Terminate" => game_state.state = GameStates::Drawing,
+                    "Button" => selection.state = Block(BlockState::Button(false)),
+                    "Bridge" => selection.state = Block(BlockState::Bridge([false;4])),
                     "Pause" => {
                         if let GameStates::Executing(game_map) = &game_state.state {
                             game_state.state = GameStates::Paused(game_map.clone());
@@ -296,8 +308,6 @@ fn button_system(
                             game_state.state = GameStates::Executing(game_map.clone());
                         }
                     }
-                    "Button" => selection.state = BlockState::Button(false),
-                    "Bridge" => selection.state = BlockState::Bridge([false;4]),
                     "Save" => {
                         if let Err(e) = blocks.save("save.json") {
                             error!("Save error: {e}");
@@ -331,9 +341,17 @@ fn button_system(
     }
 }
 
+pub fn get_brush_size(sliders: Query<(&SliderValue, &CustomUiData)>) -> i32 {
+    for slider in sliders {
+        if slider.1.name == "Size" {
+            return slider.0.0.round() as i32;
+        }
+    }
+    1
+}
+
 fn slider_system(
     mut update_timer: ResMut<UpdateTimer>,
-    mut selected_state:  ResMut<SelectedState>,
     changed_sliders: Query<(&SliderValue,&CustomUiData), Changed<SliderValue>>,
 ) {
     for slider_value in &changed_sliders {
@@ -341,9 +359,6 @@ fn slider_system(
             "Speed" => {update_timer.0.set_duration(Duration::from_secs_f32(
                 1.0 / (slider_value.0.0 + 1.0).powi(10)
             ));
-            }
-            "Size" => {
-                selected_state.size = slider_value.0.0.round() as i32;
             }
             _ => {}
         }

@@ -4,8 +4,12 @@ use crate::world::drew_game_map::DrewBlocks;
 use crate::world::game_map::GameMap;
 use bevy::prelude::MouseButton::Left;
 use bevy::prelude::*;
+use bevy::ui_widgets::SliderValue;
 use bevy_vector_shapes::Shape2dPlugin;
 use bevy_vector_shapes::painter::ShapePainter;
+use crate::plugins::control::get_brush_size;
+use crate::plugins::window::CustomUiData;
+use crate::world::world::Selection::Block;
 
 pub(crate) struct WorldPlugin;
 
@@ -27,8 +31,9 @@ fn draw_preview(
     window: Single<&Window>,
     mut gizmos: Gizmos,
     config: Res<Config>,
-    state: Res<SelectedState>,
-    game_state: Res<GameState>
+    sel_state: Res<SelectedState>,
+    game_state: Res<GameState>,
+    sliders: Query<(&SliderValue,&CustomUiData)>
 ) {
     if !config.draw_grid { return; }
     if game_state.state != GameStates::Drawing {return;}
@@ -37,9 +42,10 @@ fn draw_preview(
 
     if let Some(cursor_position) = window.cursor_position()
         && let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position)
+        && let Block(state) = sel_state.state
     {
-        for pos in get_positions_in_range(world_pos.floor().as_ivec2(), state.size-1) {
-            state.state.draw_preview(pos.as_vec2(), &mut gizmos)
+        for pos in get_positions_in_range(world_pos.floor().as_ivec2(), get_brush_size(sliders)-1) {
+            state.draw_preview(pos.as_vec2(), &mut gizmos)
         }
     }
 }
@@ -70,8 +76,13 @@ fn draw_blocks(mut painter: ShapePainter,
 
 #[derive(Resource)]
 pub struct SelectedState{
-    pub(crate) state: BlockState,
-    pub(crate) size: i32,
+    pub state: Selection
+}
+
+#[derive(Copy, Clone,PartialEq,Eq)]
+pub enum Selection{
+    Block(BlockState),
+    Selection(IVec2,IVec2)
 }
 
 #[derive(Resource)]
