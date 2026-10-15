@@ -1,3 +1,4 @@
+use bevy::color::palettes::css::WHITE;
 use crate::plugins::config::Config;
 pub(crate) use crate::world::blockstate::BlockState;
 use crate::world::drew_game_map::DrewBlocks;
@@ -9,7 +10,6 @@ use bevy_vector_shapes::Shape2dPlugin;
 use bevy_vector_shapes::painter::ShapePainter;
 use crate::plugins::control::get_brush_size;
 use crate::plugins::window::CustomUiData;
-use crate::world::world::Selection::Block;
 
 pub(crate) struct WorldPlugin;
 
@@ -42,11 +42,28 @@ fn draw_preview(
 
     if let Some(cursor_position) = window.cursor_position()
         && let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position)
-        && let Block(state) = sel_state.state
+        
     {
-        for pos in get_positions_in_range(world_pos.floor().as_ivec2(), get_brush_size(sliders)-1) {
-            state.draw_preview(pos.as_vec2(), &mut gizmos)
+        match sel_state.state {
+            Selection::Block(state) => {
+                for pos in get_positions_in_range(world_pos.floor().as_ivec2(), get_brush_size(sliders)-1) {
+                    state.draw_preview(pos.as_vec2(), &mut gizmos)
+                }
+            }
+            Selection::Selection(first, maybe_second) => {
+                match maybe_second {
+                    None => {
+                        let size = world_pos.round() - first.as_vec2();
+                        gizmos.rect_2d(first.as_vec2() + (size*0.5), size.abs(),WHITE)
+                    }
+                    Some(second) => {
+                        let size = second - first;
+                        gizmos.rect_2d(first.as_vec2() + (size.as_vec2() * 0.5), size.abs().as_vec2(),WHITE)
+                    }
+                }
+            }
         }
+        
     }
 }
 fn draw_blocks(mut painter: ShapePainter,
@@ -82,7 +99,7 @@ pub struct SelectedState{
 #[derive(Copy, Clone,PartialEq,Eq)]
 pub enum Selection{
     Block(BlockState),
-    Selection(IVec2,IVec2)
+    Selection(IVec2,Option<IVec2>)
 }
 
 #[derive(Resource)]

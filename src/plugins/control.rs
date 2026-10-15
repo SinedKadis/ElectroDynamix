@@ -1,7 +1,7 @@
 use crate::plugins::config::Config;
 use crate::plugins::window::{popup_bundle, CustomUiData, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
 use crate::world::direction::Direction;
-use crate::world::world::{BlockState, GameState, GameStates, SelectedState, UpdateTimer};
+use crate::world::world::{BlockState, GameState, GameStates, SelectedState, Selection, UpdateTimer};
 use crate::world::{game_map, world};
 use bevy::color::palettes::basic::RED;
 use bevy::input::mouse::AccumulatedMouseScroll;
@@ -21,7 +21,10 @@ impl Plugin for ControlPlugin {
         // app.add_systems(Startup, setup);
         app.add_systems(FixedUpdate, start_game);
         app.insert_resource(SelectedState{ state: Block(BlockState::Copper)});
-        app.add_systems(Update, (controls, button_system, slider_system, left_mouse_click,middle_mouse_click));
+        app.add_systems(
+            Update,
+            (controls, button_system, slider_system, left_mouse_click,middle_mouse_click,right_mouse_click)
+        );
     }
 }
 
@@ -39,6 +42,7 @@ F9 - Load
 1-9 - Different blocks
 LMB - Place block
 MMB - Pick block
+RMB - Select region
 Scroll - Rotate block
 Ctrl+Scroll - Zoom
 WASD - Move camera
@@ -110,7 +114,6 @@ fn controls(
                 GameStates::Paused(_) => {game_state.state = GameStates::Drawing;}
             }
         }
-        if let Block(_) = sel_state.state {
             if input.just_pressed(KeyCode::Digit1) {
                 sel_state.state = Block(BlockState::Empty);
             }
@@ -126,7 +129,7 @@ fn controls(
             if input.just_pressed(KeyCode::Digit5) {
                 sel_state.state = Block(BlockState::Bridge([false;4]));
             }
-        }
+
         if input.just_pressed(KeyCode::F5) {
             if let Err(e) = blocks.save("save.json") {
                 error!("Save error: {e}");
@@ -232,7 +235,7 @@ fn middle_mouse_click(
     let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position) else {
         return;
     };
-    if let Block(_) = sel_state.state {
+
         let x = world_pos.floor().as_ivec2().x;
         let y = world_pos.floor().as_ivec2().y;
         match &game_state.state {
@@ -262,6 +265,51 @@ fn middle_mouse_click(
                     sel_state.state = Block(BlockState::Empty);
                 }
             }
+        }
+
+
+}
+fn right_mouse_click(
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    window: Single<&Window>,
+    camera_query: Single<(&Camera, &GlobalTransform)>,
+    game_state: Res<GameState>,
+    mut sel_state: ResMut<SelectedState>,
+
+) {
+    if mouse_button_input.just_pressed(MouseButton::Right) {
+        let GameStates::Drawing = game_state.state else {
+            return;
+        };
+
+        let Some(cursor_position) = window.cursor_position() else {
+            return;
+        };
+
+        let (camera,camera_transform)
+            = camera_query.into_inner();
+
+        let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position) else {
+            return;
+        };
+        sel_state.state = Selection::Selection(world_pos.round().as_ivec2(),None);
+    } else if mouse_button_input.just_released(MouseButton::Right) {
+        if let Selection::Selection(pos,_) = &sel_state.state {
+            let GameStates::Drawing = game_state.state else {
+                return;
+            };
+
+            let Some(cursor_position) = window.cursor_position() else {
+                return;
+            };
+
+            let (camera,camera_transform)
+                = camera_query.into_inner();
+
+            let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position) else {
+                return;
+            };
+            sel_state.state = Selection::Selection(*pos,Some(world_pos.round().as_ivec2()));
         }
     }
 
