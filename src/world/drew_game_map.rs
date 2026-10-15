@@ -1,6 +1,6 @@
+use crate::world::blockstate::BlockState;
 use bevy::prelude::Resource;
 use serde::{Deserialize, Serialize};
-use crate::world::blockstate::BlockState;
 
 #[derive(Resource)]
 pub struct DrewBlocks {
@@ -18,6 +18,18 @@ impl DrewBlocks {
         let text = std::fs::read_to_string(path)?;
         let file: DrewBlocksFile = serde_json::from_str(&text)?;
         Ok(file.into())
+    }
+
+    pub fn add_or_replace_block(&mut self, state: BlockState, x: i32, y: i32) {
+        if let Some(existing_block) = self
+            .block_data
+            .iter_mut()
+            .find(|(bx, by, _)| *bx == x && *by == y)
+        {
+            existing_block.2 = state;
+        } else {
+            self.block_data.push((x, y, state));
+        }
     }
 }
 

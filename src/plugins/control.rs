@@ -45,6 +45,8 @@ F9 - Load
 LMB - Place block
 MMB - Pick block
 RMB - Select region
+Ctrl+C - Copy selected region to clipboard
+Ctrl+V - Paste region from clipboard to mouse or selection
 Scroll - Rotate block
 Ctrl+Scroll - Zoom
 WASD - Move camera
@@ -62,6 +64,8 @@ fn controls(
     mut blocks: ResMut<DrewBlocks>,
     mut commands: Commands,
     clipboard: Option<Res<ClipboardRes>>,
+    window: Single<&Window>,
+    camera_query_2: Single<(&Camera, &GlobalTransform)>,
 ) {
 
     let (mut transform, mut projection)
@@ -153,6 +157,12 @@ fn controls(
 
         if ctrl && input.just_pressed(KeyCode::KeyC) {
             copy_selection_to_clipboard(&Res::from(blocks), &clipboard, &Res::from(sel_state));
+            return;
+        }
+
+        if ctrl && input.just_pressed(KeyCode::KeyV) {
+            paste_from_clipboard(&mut blocks, &clipboard, &Res::from(sel_state),window,camera_query_2);
+            return;
         }
     }
 }
@@ -208,15 +218,7 @@ fn left_mouse_click(
             let x = pos.x;
             let y = pos.y;
 
-            if let Some(existing_block) = blocks
-                .block_data
-                .iter_mut()
-                .find(|(bx, by, _)| *bx == x && *by == y)
-            {
-                existing_block.2 = state;
-            } else {
-                blocks.block_data.push((x, y, state));
-            }
+            blocks.add_or_replace_block(state, x, y);
         }
     }
 
@@ -339,6 +341,8 @@ fn button_system(
     mut blocks: ResMut<DrewBlocks>,
     mut commands: Commands,
     clipboard: Option<Res<ClipboardRes>>,
+    window: Single<&Window>,
+    camera_query: Single<(&Camera, &GlobalTransform)>,
 ) {
     for (entity, interaction, mut color, mut border_color, mut button, button_data) in &mut interaction_query {
         match *interaction {
@@ -386,6 +390,10 @@ fn button_system(
 
                     "Copy" => {
                         copy_selection_to_clipboard(&Res::from(blocks), &clipboard, &Res::from(selection));
+                        return;
+                    }
+                    "Paste" => {
+                        paste_from_clipboard(&mut blocks, &clipboard, &Res::from(selection),window,camera_query);
                         return;
                     }
 
@@ -495,10 +503,10 @@ fn copy_selection_to_clipboard(
                     && (min.x..=max.x).contains(x)
                     && (min.y..=max.y).contains(y)
             })
-            .map(|(x, y, state)| (*x, *y, *state))
+            .map(|(x, y, state)| (*x - min.x, *y - max.y, *state)) // относительно левого верхнего угла
             .collect::<Vec<_>>()
     );
-    
+
     match serde_json::to_string(&file) {
         Ok(json) => {
             if let Err(e) = clipboard.0.lock().unwrap().set_text(json) {
@@ -507,5 +515,43 @@ fn copy_selection_to_clipboard(
         }
         Err(e) => error!("Cannot copy: {e}"),
     }
+}
+
+fn paste_from_clipboard(
+    blocks: &mut ResMut<DrewBlocks>,
+    clipboard: &Option<Res<ClipboardRes>>,
+    selection: &Res<SelectedState>,
+    window: Single<&Window>,
+    camera_query: Single<(&Camera, &GlobalTransform)>,
+) {
+    let Some(clipboard) = clipboard else { return };
+
+   match clipboard.0.lock().unwrap().get_text() {
+       Ok(text) => {
+           let Ok(file) = serde_json::from_str::<DrewBlocksFile>(&text) else {
+               error!("Cannot paste: invalid JSON");
+               return;
+           };
+           let anchor: IVec2 = match selection.state {
+               Selection::Selection(first, Some(second)) => {
+                   IVec2::new(first.x.min(second.x), first.y.max(second.y))
+               }
+               _ => {
+                   let (camera, camera_transform) = camera_query.into_inner();
+                   let Some(cursor_position) = window.cursor_position() else { return };
+                   let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position) else { return };
+                   world_pos.floor().as_ivec2()
+               }
+           };
+
+           for (x, y, state) in DrewBlocks::from(file).block_data {
+               blocks.add_or_replace_block(state, x + anchor.x, y + anchor.y);
+           }
+       }
+       Err(e) => {
+           error!("Cannot read clipboard: {}", e);
+           return
+       }
+   }
 }
 
