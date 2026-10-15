@@ -42,7 +42,7 @@ fn draw_preview(
 
     if let Some(cursor_position) = window.cursor_position()
         && let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position)
-        
+
     {
         match sel_state.state {
             Selection::Block(state) => {
@@ -51,20 +51,21 @@ fn draw_preview(
                 }
             }
             Selection::Selection(first, maybe_second) => {
-                match maybe_second {
-                    None => {
-                        let size = world_pos.round() - first.as_vec2();
-                        gizmos.rect_2d(first.as_vec2() + (size*0.5), size.abs(),WHITE)
-                    }
-                    Some(second) => {
-                        let size = second - first;
-                        gizmos.rect_2d(first.as_vec2() + (size.as_vec2() * 0.5), size.abs().as_vec2(),WHITE)
-                    }
-                }
+                let end = match maybe_second {
+                    Some(second) => second,
+                    None => world_pos.floor().as_ivec2(), 
+                };
+                let (center, size) = selection_rect(first, end);
+                gizmos.rect_2d(center, size, WHITE);
             }
         }
-        
+
     }
+}
+fn selection_rect(a: IVec2, b: IVec2) -> (Vec2, Vec2) {
+    let min = a.min(b).as_vec2();
+    let max = (a.max(b) + IVec2::ONE).as_vec2();
+    ((min + max) * 0.5, max - min)
 }
 fn draw_blocks(mut painter: ShapePainter,
                blocks: Res<DrewBlocks>,

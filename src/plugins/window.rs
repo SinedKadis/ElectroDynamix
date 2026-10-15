@@ -264,7 +264,7 @@ struct Popup;
 #[derive(Component)]
 struct PopupCloseButton;
 
-pub fn popup_bundle(message: String) -> impl Bundle {
+pub fn help_popup(message: String) -> impl Bundle {
     (
         Popup,
         GlobalZIndex(100),
@@ -330,14 +330,46 @@ pub fn popup_bundle(message: String) -> impl Bundle {
     )
 }
 
+pub fn selection_popup(xy: Vec2) -> impl Bundle {
+    (
+        Popup,
+        GlobalZIndex(100),
+
+            // сама панель
+            Node {
+                width: px(360.0),
+                padding: UiRect::all(px(16.0)),
+                border: UiRect::all(px(2.0)),
+                flex_direction: FlexDirection::Column,
+                row_gap: px(12.0),
+                border_radius: BorderRadius::all(px(8.0)),
+                left: Val::Px(xy.x),
+                top: Val::Px(xy.y),
+                ..default()
+            },
+            BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
+            BorderColor::all(Color::WHITE),
+            children![
+
+                button_bundle(String::from("Copy")),
+                button_bundle(String::from("Paste"))
+            ],
+
+    )
+}
+
 fn close_popup(
-    buttons: Query<&Interaction, (Changed<Interaction>, With<PopupCloseButton>)>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    buttons: Query<&Interaction, Changed<Interaction>>,
     popups: Query<Entity, With<Popup>>,
     input: Res<ButtonInput<KeyCode>>,
     mut commands: Commands,
 ) {
-    let clicked = buttons.iter().any(|i| *i == Interaction::Pressed);
-    if clicked || input.just_pressed(KeyCode::Escape) {
+    let button = buttons.iter().any(|i| *i == Interaction::Pressed);
+    let mouse = mouse_button_input.get_just_pressed().count() > 0;
+    let keyboard = input.get_just_pressed().count() > 0;
+
+    if  keyboard || mouse || button  {
         for e in &popups {
             commands.entity(e).despawn();
         }

@@ -28,23 +28,30 @@ struct StateGroup {
 }
 
 #[derive(Serialize, Deserialize)]
-struct DrewBlocksFile {
+pub struct DrewBlocksFile {
     block_data: Vec<StateGroup>,
 }
 
 impl From<&DrewBlocks> for DrewBlocksFile {
     fn from(blocks: &DrewBlocks) -> Self {
+        Self::blocks_to_state_group(&blocks.block_data) 
+    }
+}
+
+impl DrewBlocksFile {
+    pub fn blocks_to_state_group(blocks: &Vec<(i32, i32, BlockState)>) -> Self {
         let mut groups: Vec<StateGroup> = Vec::new();
-        for &(x, y, state) in &blocks.block_data {
-            if state == BlockState::Empty {
+
+        for (x, y, state) in blocks {
+            if *state == BlockState::Empty {
                 continue;
             }
-            match groups.iter_mut().find(|g| g.state == state) {
-                Some(group) => group.positions.push([x, y]),
-                None => groups.push(StateGroup { state, positions: vec![[x, y]] }),
+            match groups.iter_mut().find(|g| g.state == *state) {
+                Some(group) => group.positions.push([*x, *y]),
+                None => groups.push(StateGroup { state: *state, positions: vec![[*x, *y]] }),
             }
         }
-        DrewBlocksFile { block_data: groups }
+        DrewBlocksFile { block_data:groups }
     }
 }
 

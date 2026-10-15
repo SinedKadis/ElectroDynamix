@@ -1,5 +1,6 @@
+use std::sync::Mutex;
 use crate::plugins::config::Config;
-use crate::plugins::window::{popup_bundle, CustomUiData, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
+use crate::plugins::window::{help_popup, CustomUiData, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON, selection_popup};
 use crate::world::direction::Direction;
 use crate::world::world::{BlockState, GameState, GameStates, SelectedState, Selection, UpdateTimer};
 use crate::world::{game_map, world};
@@ -11,8 +12,8 @@ use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
 use bevy::ui_widgets::SliderValue;
 use std::time::Duration;
-use crate::world::drew_game_map::DrewBlocks;
-use crate::world::world::Selection::Block;
+use crate::world::drew_game_map::{DrewBlocks, DrewBlocksFile};
+use crate::world::world::Selection::{Block};
 
 pub struct ControlPlugin;
 
@@ -25,6 +26,7 @@ impl Plugin for ControlPlugin {
             Update,
             (controls, button_system, slider_system, left_mouse_click,middle_mouse_click,right_mouse_click)
         );
+        app.add_systems(Startup, setup_clipboard);
     }
 }
 
@@ -59,15 +61,18 @@ fn controls(
     mut sel_state: ResMut<SelectedState>,
     mut blocks: ResMut<DrewBlocks>,
     mut commands: Commands,
+    clipboard: Option<Res<ClipboardRes>>,
 ) {
 
     let (mut transform, mut projection)
         = camera_query.into_inner();
 
     if let Projection::Orthographic(projection2d) = &mut *projection {
+        let ctrl = input.pressed(KeyCode::ControlLeft);
+
         if accumulated_mouse_scroll.delta != Vec2::ZERO {
             let delta = accumulated_mouse_scroll.delta;
-            if input.pressed(KeyCode::ControlLeft) {
+            if ctrl {
                 if delta.y < 0.0 {
                     projection2d.scale *= powf(4.0f32, time.delta_secs() * MOUSE_SENSITIVITY * 2f32);
                 }else {
@@ -143,7 +148,11 @@ fn controls(
             }
         }
         if input.just_pressed(KeyCode::F1) {
-            commands.spawn(popup_bundle(HELP_MESSAGE.into()));
+            commands.spawn(help_popup(HELP_MESSAGE.into()));
+        }
+
+        if ctrl && input.just_pressed(KeyCode::KeyC) {
+            copy_selection_to_clipboard(&Res::from(blocks), &clipboard, &Res::from(sel_state));
         }
     }
 }
@@ -275,6 +284,7 @@ fn right_mouse_click(
     camera_query: Single<(&Camera, &GlobalTransform)>,
     game_state: Res<GameState>,
     mut sel_state: ResMut<SelectedState>,
+    mut commands: Commands,
 
 ) {
     if mouse_button_input.just_pressed(MouseButton::Right) {
@@ -292,7 +302,7 @@ fn right_mouse_click(
         let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position) else {
             return;
         };
-        sel_state.state = Selection::Selection(world_pos.round().as_ivec2(),None);
+        sel_state.state = Selection::Selection(world_pos.floor().as_ivec2(),None);
     } else if mouse_button_input.just_released(MouseButton::Right) {
         if let Selection::Selection(pos,_) = &sel_state.state {
             let GameStates::Drawing = game_state.state else {
@@ -309,7 +319,8 @@ fn right_mouse_click(
             let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position) else {
                 return;
             };
-            sel_state.state = Selection::Selection(*pos,Some(world_pos.round().as_ivec2()));
+            sel_state.state = Selection::Selection(*pos,Some(world_pos.floor().as_ivec2()));
+            commands.spawn(selection_popup(cursor_position));
         }
     }
 
@@ -327,6 +338,7 @@ fn button_system(
     mut game_state: ResMut<GameState>,
     mut blocks: ResMut<DrewBlocks>,
     mut commands: Commands,
+    clipboard: Option<Res<ClipboardRes>>,
 ) {
     for (entity, interaction, mut color, mut border_color, mut button, button_data) in &mut interaction_query {
         match *interaction {
@@ -360,6 +372,7 @@ fn button_system(
                         if let Err(e) = blocks.save("save.json") {
                             error!("Save error: {e}");
                         }
+                        return;
                     }
                     "Load" => {
                         let loaded = DrewBlocks::load("save.json");
@@ -367,10 +380,16 @@ fn button_system(
                             Ok(save) => {blocks.block_data = save.block_data;}
                             Err(e) => {error!("Load error: {e}");}
                         }
+                        return;
                     },
-                    "Help" => { commands.spawn(popup_bundle(HELP_MESSAGE.into())); }
+                    "Help" => { commands.spawn(help_popup(HELP_MESSAGE.into())); }
 
-                    other => {panic!("Unknown button: {}", other)}
+                    "Copy" => {
+                        copy_selection_to_clipboard(&Res::from(blocks), &clipboard, &Res::from(selection));
+                        return;
+                    }
+
+                    other => {error!("Unknown button: {}", other)}
                 }
                 button.set_changed();
             }
@@ -445,5 +464,48 @@ fn start_game(mut game_state: ResMut<GameState>,
     }
 
     game_state.state = GameStates::Executing(game_map);
+}
+
+#[derive(Resource)]
+struct ClipboardRes(Mutex<arboard::Clipboard>);
+
+fn setup_clipboard(mut commands: Commands) {
+    match arboard::Clipboard::new() {
+        Ok(cb) => commands.insert_resource(ClipboardRes(Mutex::new(cb))),
+        Err(e) => error!("буфер обмена недоступен: {e}"),
+    }
+}
+
+fn copy_selection_to_clipboard(
+    blocks: &Res<DrewBlocks>,
+    clipboard: &Option<Res<ClipboardRes>>,
+    selection: &Res<SelectedState>,
+
+) {
+    let Some(clipboard) = clipboard else { return };
+    let Selection::Selection(first,Some(second)) = selection.state else { return };
+
+    let min = first.min(second);
+    let max = first.max(second);
+
+    let file = DrewBlocksFile::blocks_to_state_group(
+        &blocks.block_data.iter()
+            .filter(|(x, y, state)| {
+                *state != BlockState::Empty
+                    && (min.x..=max.x).contains(x)
+                    && (min.y..=max.y).contains(y)
+            })
+            .map(|(x, y, state)| (*x, *y, *state))
+            .collect::<Vec<_>>()
+    );
+    
+    match serde_json::to_string(&file) {
+        Ok(json) => {
+            if let Err(e) = clipboard.0.lock().unwrap().set_text(json) {
+                error!("Cannot copy: {e}");
+            }
+        }
+        Err(e) => error!("Cannot copy: {e}"),
+    }
 }
 
