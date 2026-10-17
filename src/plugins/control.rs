@@ -60,7 +60,7 @@ fn controls(
     time: Res<Time>,
     accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
     mut game_state: ResMut<GameState>,
-    mut sel_state: ResMut<SelectedState>,
+    mut selection: ResMut<SelectedState>,
     mut blocks: ResMut<DrewBlocks>,
     mut commands: Commands,
     clipboard: Option<Res<ClipboardRes>>,
@@ -83,11 +83,11 @@ fn controls(
                     projection2d.scale *= powf(0.25f32, time.delta_secs() * MOUSE_SENSITIVITY * 2f32);
                 }
             } else {
-                if let Block(state) = sel_state.state {
+                if let Block(state) = selection.state {
                     if delta.y < 0.0  {
-                        sel_state.state = Block(state.rotate(true))
+                        selection.state = Block(state.rotate(true))
                     } else {
-                        sel_state.state = Block(state.rotate(false))
+                        selection.state = Block(state.rotate(false))
                     }
                 }
             }
@@ -124,19 +124,19 @@ fn controls(
             }
         }
             if input.just_pressed(KeyCode::Digit1) {
-                sel_state.state = Block(BlockState::Empty);
+                selection.state = Block(BlockState::Empty);
             }
             if input.just_pressed(KeyCode::Digit2) {
-                sel_state.state = Block(BlockState::Copper);
+                selection.state = Block(BlockState::Copper);
             }
             if input.just_pressed(KeyCode::Digit3) {
-                sel_state.state = Block(BlockState::Electricity([false, false, true, false]));
+                selection.state = Block(BlockState::Electricity([false, false, true, false]));
             }
             if input.just_pressed(KeyCode::Digit4) {
-                sel_state.state = Block(BlockState::Diode(Direction::Right, false, false));
+                selection.state = Block(BlockState::Diode(Direction::Right, false, false));
             }
             if input.just_pressed(KeyCode::Digit5) {
-                sel_state.state = Block(BlockState::Bridge([false;4]));
+                selection.state = Block(BlockState::Bridge([false;4]));
             }
 
         if input.just_pressed(KeyCode::F5) {
@@ -156,12 +156,18 @@ fn controls(
         }
 
         if ctrl && input.just_pressed(KeyCode::KeyC) {
-            copy_selection_to_clipboard(&Res::from(blocks), &clipboard, &Res::from(sel_state));
+            copy_selection_to_clipboard(&Res::from(blocks), &clipboard, &selection);
+            if let Selection::Selection(_,Some(_)) = &selection.state {
+                selection.state = Block(BlockState::Empty);
+            }
             return;
         }
 
         if ctrl && input.just_pressed(KeyCode::KeyV) {
-            paste_from_clipboard(&mut blocks, &clipboard, &Res::from(sel_state),window,camera_query_2);
+            paste_from_clipboard(&mut blocks, &clipboard, &selection, window, camera_query_2);
+            if let Selection::Selection(_,_) = &selection.state {
+                selection.state = Block(BlockState::Empty);
+            }
             return;
         }
     }
@@ -389,11 +395,13 @@ fn button_system(
                     "Help" => { commands.spawn(help_popup(HELP_MESSAGE.into())); }
 
                     "Copy" => {
-                        copy_selection_to_clipboard(&Res::from(blocks), &clipboard, &Res::from(selection));
+                        copy_selection_to_clipboard(&Res::from(blocks), &clipboard, &selection);
+                        selection.state = Block(BlockState::Empty);
                         return;
                     }
                     "Paste" => {
-                        paste_from_clipboard(&mut blocks, &clipboard, &Res::from(selection),window,camera_query);
+                        paste_from_clipboard(&mut blocks, &clipboard, &selection,window,camera_query);
+                        selection.state = Block(BlockState::Empty);
                         return;
                     }
 
@@ -487,7 +495,7 @@ fn setup_clipboard(mut commands: Commands) {
 fn copy_selection_to_clipboard(
     blocks: &Res<DrewBlocks>,
     clipboard: &Option<Res<ClipboardRes>>,
-    selection: &Res<SelectedState>,
+    selection: &SelectedState,
 
 ) {
     let Some(clipboard) = clipboard else { return };
@@ -520,7 +528,7 @@ fn copy_selection_to_clipboard(
 fn paste_from_clipboard(
     blocks: &mut ResMut<DrewBlocks>,
     clipboard: &Option<Res<ClipboardRes>>,
-    selection: &Res<SelectedState>,
+    selection: &SelectedState,
     window: Single<&Window>,
     camera_query: Single<(&Camera, &GlobalTransform)>,
 ) {

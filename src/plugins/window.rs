@@ -259,9 +259,6 @@ pub struct CustomUiData {
 }
 
 #[derive(Component)]
-struct Popup;
-
-#[derive(Component)]
 struct PopupCloseButton;
 
 pub fn help_popup(message: String) -> impl Bundle {
@@ -330,9 +327,14 @@ pub fn help_popup(message: String) -> impl Bundle {
     )
 }
 
+#[derive(Component)]
+struct Popup;
+#[derive(Component)]
+pub struct EasyClosablePopup;
+
 pub fn selection_popup(xy: Vec2) -> impl Bundle {
     (
-        Popup,
+        EasyClosablePopup,
         GlobalZIndex(100),
 
             // сама панель
@@ -360,8 +362,9 @@ pub fn selection_popup(xy: Vec2) -> impl Bundle {
 
 fn close_popup(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
-    buttons: Query<&Interaction, Changed<Interaction>>,
+    buttons: Query<&Interaction, (Changed<Interaction>, With<PopupCloseButton>)>,
     popups: Query<Entity, With<Popup>>,
+    easy_closable_popups: Query<Entity, With<EasyClosablePopup>>,
     input: Res<ButtonInput<KeyCode>>,
     mut commands: Commands,
 ) {
@@ -369,7 +372,12 @@ fn close_popup(
     let mouse = mouse_button_input.get_just_pressed().count() > 0;
     let keyboard = input.get_just_pressed().count() > 0;
 
-    if  keyboard || mouse || button  {
+    if  keyboard || mouse {
+        for e in &easy_closable_popups {
+            commands.entity(e).despawn();
+        }
+    }
+    if button {
         for e in &popups {
             commands.entity(e).despawn();
         }
