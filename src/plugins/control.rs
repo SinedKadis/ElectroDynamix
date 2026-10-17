@@ -55,6 +55,7 @@ ESC - Terminate(back to drawing)
 ";
 
 fn controls(
+    popups: Query<Entity, With<crate::plugins::window::Popup>>,
     camera_query: Single<(&mut Transform, &mut Projection)>,
     input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
@@ -67,6 +68,9 @@ fn controls(
     window: Single<&Window>,
     camera_query_2: Single<(&Camera, &GlobalTransform)>,
 ) {
+    if popups.iter().count() > 0 {
+        return;
+    }
 
     let (mut transform, mut projection)
         = camera_query.into_inner();
@@ -174,6 +178,7 @@ fn controls(
 }
 
 fn left_mouse_click(
+    popups: Query<Entity, With<crate::plugins::window::Popup>>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     sel_state: Res<SelectedState>,
     interaction_query: Query<
@@ -192,6 +197,10 @@ fn left_mouse_click(
     camera_query: Single<(&Camera, &GlobalTransform)>,
     sliders: Query<(&SliderValue,&CustomUiData)>
 ) {
+    if popups.iter().count() > 0 {
+        return;
+    }
+
     if !mouse_button_input.pressed(MouseButton::Left) {
         return;
     }
@@ -231,6 +240,7 @@ fn left_mouse_click(
 }
 
 fn middle_mouse_click(
+    popups: Query<Entity, With<crate::plugins::window::Popup>>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     window: Single<&Window>,
     camera_query: Single<(&Camera, &GlobalTransform)>,
@@ -239,6 +249,10 @@ fn middle_mouse_click(
     mut sel_state: ResMut<SelectedState>,
 
 ){
+    if popups.iter().count() > 0 {
+        return;
+    }
+
     if !mouse_button_input.just_pressed(MouseButton::Middle) {
         return;
     }
@@ -287,6 +301,7 @@ fn middle_mouse_click(
 
 }
 fn right_mouse_click(
+    popups: Query<Entity, With<crate::plugins::window::Popup>>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     window: Single<&Window>,
     camera_query: Single<(&Camera, &GlobalTransform)>,
@@ -295,6 +310,10 @@ fn right_mouse_click(
     mut commands: Commands,
 
 ) {
+    if popups.iter().count() > 0 {
+        return;
+    }
+
     if mouse_button_input.just_pressed(MouseButton::Right) {
         let GameStates::Drawing = game_state.state else {
             return;
@@ -336,6 +355,7 @@ fn right_mouse_click(
 
 
 fn button_system(
+    popups: Query<Entity, With<crate::plugins::window::Popup>>,
     mut input_focus: ResMut<InputFocus>,
     mut interaction_query: Query<
     (Entity, &Interaction, &mut BackgroundColor, &mut BorderColor, &mut Button, &CustomUiData),
@@ -353,12 +373,15 @@ fn button_system(
     for (entity, interaction, mut color, mut border_color, mut button, button_data) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
+                if popups.iter().count() > 0 {
+                    return;
+                }
                 input_focus.set(entity, FocusCause::Pressed);
                 *color = PRESSED_BUTTON.into();
                 *border_color = BorderColor::all(RED);
 
                 match button_data.name.as_str() {
-                    "Toggle Preview" => config.draw_grid = !config.draw_grid,
+                    "Toggle Preview" => config.draw_preview = !config.draw_preview,
                     "Toggle Arrows" => config.draw_arrows = !config.draw_arrows,
                     "Rubber" => selection.state = Block(BlockState::Empty),
                     "Copper" => selection.state = Block(BlockState::Copper),
@@ -411,6 +434,9 @@ fn button_system(
             }
             Interaction::Hovered => {
                 input_focus.set(entity, FocusCause::Pressed);
+                if popups.iter().count() > 0 {
+                    return;
+                }
                 *color = HOVERED_BUTTON.into();
                 *border_color = BorderColor::all(Color::WHITE);
                 button.set_changed();
@@ -434,9 +460,14 @@ pub fn get_brush_size(sliders: Query<(&SliderValue, &CustomUiData)>) -> i32 {
 }
 
 fn slider_system(
+    popups: Query<Entity, With<crate::plugins::window::Popup>>,
+    input: Res<ButtonInput<KeyCode>>,
     mut update_timer: ResMut<UpdateTimer>,
     changed_sliders: Query<(&SliderValue,&CustomUiData), Changed<SliderValue>>,
 ) {
+    if popups.iter().count() > 0 && !input.pressed(KeyCode::Escape) {
+        return;
+    }
     for slider_value in &changed_sliders {
         match slider_value.1.name.as_str() {
             "Speed" => {update_timer.0.set_duration(Duration::from_secs_f32(

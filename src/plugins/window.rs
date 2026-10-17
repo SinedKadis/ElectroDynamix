@@ -328,7 +328,7 @@ pub fn help_popup(message: String) -> impl Bundle {
 }
 
 #[derive(Component)]
-struct Popup;
+pub struct Popup;
 #[derive(Component)]
 pub struct EasyClosablePopup;
 
@@ -361,7 +361,7 @@ pub fn selection_popup(xy: Vec2) -> impl Bundle {
 }
 
 fn close_popup(
-    mouse_button_input: Res<ButtonInput<MouseButton>>,
+    mut mouse_button_input: ResMut<ButtonInput<MouseButton>>,
     buttons: Query<&Interaction, (Changed<Interaction>, With<PopupCloseButton>)>,
     popups: Query<Entity, With<Popup>>,
     easy_closable_popups: Query<Entity, With<EasyClosablePopup>>,
@@ -377,9 +377,10 @@ fn close_popup(
             commands.entity(e).despawn();
         }
     }
-    if button {
+    if button || input.just_pressed(KeyCode::Escape) {
         for e in &popups {
             commands.entity(e).despawn();
         }
+        mouse_button_input.reset_all();
     }
 }

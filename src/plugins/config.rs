@@ -6,13 +6,13 @@ impl Plugin for ConfigPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(Config
         {
-            draw_grid: true, 
+            draw_preview: true,
             draw_arrows: true
         });
     }
 }
 #[derive(Resource)]
 pub struct Config{
-    pub draw_grid : bool,
+    pub draw_preview: bool,
     pub draw_arrows : bool,
 }

@@ -27,6 +27,7 @@ impl Plugin for WorldPlugin {
 
 
 fn draw_preview(
+    popups: Query<Entity, With<crate::plugins::window::Popup>>,
     camera_query: Single<(&Camera, &GlobalTransform)>,
     window: Single<&Window>,
     mut gizmos: Gizmos,
@@ -35,7 +36,10 @@ fn draw_preview(
     game_state: Res<GameState>,
     sliders: Query<(&SliderValue,&CustomUiData)>
 ) {
-    if !config.draw_grid { return; }
+    if popups.iter().count() > 0 {
+        return;
+    }
+    if !config.draw_preview { return; }
     if game_state.state != GameStates::Drawing {return;}
 
     let (camera, camera_transform) = *camera_query;
