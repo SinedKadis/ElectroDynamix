@@ -1,15 +1,15 @@
-use bevy::color::palettes::css::WHITE;
 use crate::plugins::config::Config;
+use crate::plugins::control::get_brush_size;
+use crate::plugins::window::CustomUiData;
 pub(crate) use crate::world::blockstate::BlockState;
 use crate::world::drew_game_map::DrewBlocks;
 use crate::world::game_map::GameMap;
+use bevy::color::palettes::css::WHITE;
 use bevy::prelude::MouseButton::Left;
 use bevy::prelude::*;
 use bevy::ui_widgets::SliderValue;
 use bevy_vector_shapes::Shape2dPlugin;
 use bevy_vector_shapes::painter::ShapePainter;
-use crate::plugins::control::get_brush_size;
-use crate::plugins::window::CustomUiData;
 
 pub(crate) struct WorldPlugin;
 
@@ -75,7 +75,9 @@ fn draw_blocks(mut painter: ShapePainter,
                blocks: Res<DrewBlocks>,
                mut gizmos: Gizmos,
                config : Res<Config>,
-               game_state: Res<GameState>) {
+               game_state: Res<GameState>,
+               camera_query: Single<(&Camera, &GlobalTransform,&mut Projection)>,
+               window: Single<&Window>) {
     match &game_state.state {
         GameStates::Drawing => {
             for block_data in &blocks.block_data {
@@ -86,10 +88,17 @@ fn draw_blocks(mut painter: ShapePainter,
 
         GameStates::Compiling => {}
         GameStates::Executing(game_map) => {
-            game_map.draw(&mut painter,&mut gizmos, config.draw_arrows);
+            let (camera,gt,mut projection) = camera_query.into_inner();
+            let Some((min,max)) = visible_bounds(camera, gt, *window) else {return};
+            let Projection::Orthographic(ortho) = &mut *projection else {return};
+            game_map.draw(min,max,&mut painter,&mut gizmos, config.draw_arrows && ortho.scale < 0.05);
         }
         GameStates::Paused(game_map) => {
-            game_map.draw(&mut painter,&mut gizmos, config.draw_arrows);
+            let (camera,gt,mut projection) = camera_query.into_inner();
+            let Some((min,max)) = visible_bounds(camera, gt, *window) else {return};
+            let Projection::Orthographic(ortho) = &mut *projection else {return};
+
+            game_map.draw(min,max,&mut painter,&mut gizmos, config.draw_arrows && ortho.scale < 0.05);
         }
     }
 
@@ -134,7 +143,7 @@ fn update_blocks(mut game_state: ResMut<GameState>,
         let new_game_map : GameMap = match &game_state.state {
             GameStates::Drawing => {return;}
             GameStates::Compiling => {return;}
-            GameStates::Executing(game_map) => {game_map.update(None)}
+            GameStates::Executing(game_map) => {game_map.step()}
             GameStates::Paused(_) => {return;}
         };
         game_state.state = GameStates::Executing(new_game_map);
@@ -143,13 +152,10 @@ fn update_blocks(mut game_state: ResMut<GameState>,
         let (camera, camera_transform) = camera_query.into_inner();
         if let Some(cursor_position) = window.cursor_position()  {
             if let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position) {
-                if let GameStates::Executing(game) = &game_state.state {
-                    let new_game_map = game.update(game.to_game_pos(world_pos.x.floor() as i32, world_pos.y.floor() as i32));
-                    game_state.state = GameStates::Executing(new_game_map);
-                }
-                if let GameStates::Paused(game) = &game_state.state {
-                    let new_game_map = game.update(game.to_game_pos(world_pos.x.floor() as i32, world_pos.y.floor() as i32));
-                    game_state.state = GameStates::Paused(new_game_map);
+                if let GameStates::Executing(game) | GameStates::Paused(game) = &mut game_state.state {
+                    if let Some(p) = game.to_game_pos(world_pos.x.floor() as i32, world_pos.y.floor() as i32) {
+                        game.press_button(p);
+                    }
                 }
             }
         }
@@ -169,4 +175,13 @@ pub fn get_positions_in_range(center: IVec2, max_distance: i32) -> Vec<IVec2> {
         }
     }
     points
+}
+
+pub fn visible_bounds(camera: &Camera, tf: &GlobalTransform, window: &Window) -> Option<(IVec2, IVec2)> {
+    let a = camera.viewport_to_world_2d(tf, Vec2::ZERO).ok()?;
+    let b = camera.viewport_to_world_2d(tf, window.size()).ok()?;
+    Some((
+        a.min(b).floor().as_ivec2() - IVec2::ONE,
+        a.max(b).ceil().as_ivec2() + IVec2::ONE,
+    ))
 }

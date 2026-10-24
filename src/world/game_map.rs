@@ -1,8 +1,9 @@
 use crate::world::blockstate::BlockState;
 use crate::world::direction::Direction;
 use bevy::math::{USizeVec2, Vec2};
-use bevy::prelude::Gizmos;
+use bevy::prelude::{Gizmos, IVec2};
 use bevy_vector_shapes::painter::ShapePainter;
+use rayon::prelude::*;
 
 #[derive(Clone, PartialEq, Eq)]
 pub(crate) struct GameMap {
@@ -50,10 +51,15 @@ impl GameMap {
         }
     }
 
-    pub(crate) fn draw(&self, painter: &mut ShapePainter, gizmos: &mut Gizmos, draw_arrows: bool) {
-        for gy in 0..self.height {
-            for gx in 0..self.width {
-                let state = &self.cells[gy * self.width + gx];
+    pub(crate) fn draw(&self,min:IVec2,max:IVec2, painter: &mut ShapePainter, gizmos: &mut Gizmos, draw_arrows: bool) {
+
+        let x0 = (min.x - self.min_x).clamp(0, self.width as i32) as usize;
+        let x1 = (max.x - self.min_x + 1).clamp(0, self.width as i32) as usize;
+        let y0 = (min.y - self.min_y).clamp(0, self.height as i32) as usize;
+        let y1 = (max.y - self.min_y + 1).clamp(0, self.height as i32) as usize;
+
+        for gy in y0..y1 { for gx in x0..x1 {
+            let state = &self.cells[gy * self.width + gx];
 
                 let x = self.min_x + gx as i32;
                 let y = self.min_y + gy as i32;
@@ -77,32 +83,32 @@ impl GameMap {
         self.cells.get(y * self.width + x)
     }
 
-    pub(crate) fn update(& self, interact_pos: Option<USizeVec2>) -> GameMap {
-        let mut new_game_map = self.clone();
-        if let Some(interact) = interact_pos {
-            if let Some(cell) = self.cells.get(self.index(interact)) {
-                if let BlockState::Button(_) = cell {
-                    new_game_map.cells[self.index(interact)] = BlockState::Button(true);
-                }
-            }
-        } else  {
-            for y in 0..self.height {
-            for x in 0..self.width {
-                let state = &self.cells[y * self.width + x];
-                new_game_map.cells[y * self.width + x] = state.compute(
-                    Direction::DIRECTIONS.iter()
-                        .map(|d| self.get_cell((x,y),d.to_tuple_int())
-                            .unwrap_or(&BlockState::Empty))
-                        .collect::<Vec<&BlockState>>()
-                        .try_into()
-                        .unwrap_or([&BlockState::Empty;4])
-                );
-            }
-            }
+    pub(crate) fn press_button(&mut self, pos: USizeVec2) {
+        let i = self.index(pos);
+        if let Some(BlockState::Button(_)) = self.cells.get(i) {
+            self.cells[i] = BlockState::Button(true);
         }
+    }
 
 
 
-        new_game_map
+    pub(crate) fn step(&self) -> GameMap {
+        let mut next = self.clone();
+        let width = self.width;
+        next.cells
+            .par_chunks_mut(width)
+            .enumerate()
+            .for_each(|(y, row)| {
+                for (x, out) in row.iter_mut().enumerate() {
+                    let state = &self.cells[y * width + x];
+                    if *state == BlockState::Empty { continue; } // в клоне там уже Empty
+                    let neighbors: [&BlockState; 4] = std::array::from_fn(|i| {
+                        self.get_cell((x, y), Direction::DIRECTIONS[i].to_tuple_int())
+                            .unwrap_or(&BlockState::Empty)
+                    });
+                    *out = state.compute(neighbors);
+                }
+            });
+        next
     }
 }
