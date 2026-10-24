@@ -1,10 +1,14 @@
-use crate::world::world::{GameState, GameStates};
+use crate::plugins::control::{HELP_MESSAGE, load_game, save_game, select_block_state, set_game_state, spawn, toggle_config};
+use crate::plugins::ui_elements::{button_bundle, slider_bundle, text_popup};
+use crate::world::blockstate::BlockState;
+use crate::world::direction::Direction;
+use crate::world::world::{CurrentGameState, GameState};
+use bevy::color::palettes::basic::RED;
 use bevy::input_focus::InputFocus;
+use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
-use bevy::ui_widgets::{
-    SliderRange, SliderThumb, SliderValue,
-};
-use crate::plugins::ui_elements::{button_bundle, slider_bundle};
+use bevy::ui::Pressed;
+use bevy::ui_widgets::{SliderRange, SliderThumb, SliderValue};
 
 pub struct UiPlugin;
 
@@ -16,6 +20,7 @@ impl Plugin for UiPlugin {
         app.add_systems(
             Update,
             (
+                button_system,
                 update_ui_elements_visibility,
                 update_slider_visuals,
                 close_popup,
@@ -54,12 +59,18 @@ fn setup(mut commands: Commands) {
             ..default()
         },
         children![
-            button_bundle(String::from("Rubber")),
-            button_bundle(String::from("Copper")),
-            button_bundle(String::from("Electricity")),
-            button_bundle(String::from("Diode")),
-            button_bundle(String::from("Button")),
-            button_bundle(String::from("Bridge")),
+            button_bundle("Rubber", select_block_state(BlockState::Empty)),
+            button_bundle("Copper", select_block_state(BlockState::Copper)),
+            button_bundle(
+                "Electricity Right",
+                select_block_state(BlockState::Electricity([false, false, true, false]))
+            ),
+            button_bundle(
+                "Diode Right",
+                select_block_state(BlockState::Diode(Direction::Right, false, false))
+            ),
+            button_bundle("Button",select_block_state(BlockState::Button(false))),
+            button_bundle("Bridge",select_block_state(BlockState::Bridge([false;4]))),
         ],
     ));
     commands.spawn((
@@ -73,9 +84,9 @@ fn setup(mut commands: Commands) {
             ..default()
         },
         children![
-            button_bundle(String::from("Help")),
-            button_bundle(String::from("Toggle Preview")),
-            button_bundle(String::from("Toggle Arrows"))
+            button_bundle("Help",spawn(|| text_popup(HELP_MESSAGE))),
+            button_bundle("Toggle Preview",toggle_config(|c| &mut c.draw_preview)),
+            button_bundle("Toggle Arrows",toggle_config(|c| &mut c.draw_preview))
         ],
     ));
 
@@ -90,10 +101,12 @@ fn setup(mut commands: Commands) {
             ..default()
         },
         children![
-            button_bundle(String::from("Compile")),
-            button_bundle(String::from("Terminate")),
-            button_bundle(String::from("Pause")),
-            button_bundle(String::from("Resume"))
+            button_bundle(String::from("Compile"), set_game_state( |_| GameState::Compiling)),
+            button_bundle(String::from("Terminate"), set_game_state( |_| GameState::Drawing)),
+            button_bundle(String::from("Pause"),
+                set_game_state( |map| GameState::Paused(map.expect("No map found when pausing").clone()))),
+            button_bundle(String::from("Resume"),
+                set_game_state( |map| GameState::Executing(map.expect("No map found when resuming").clone())))
         ],
     ));
 
@@ -109,8 +122,8 @@ fn setup(mut commands: Commands) {
         },
         children![
             slider_bundle(String::from("Speed"), 0f32, 1f32, 0f32),
-            button_bundle(String::from("Save")),
-            button_bundle(String::from("Load"))
+            button_bundle(String::from("Save"),save_game()),
+            button_bundle(String::from("Load"),load_game())
         ],
     ));
 
@@ -129,7 +142,7 @@ fn setup(mut commands: Commands) {
 }
 
 fn update_ui_elements_visibility(
-    game_state: Res<GameState>,
+    game_state: Res<CurrentGameState>,
     mut buttons: Query<(&CustomUiData, &mut Visibility, &mut Node)>,
 ) {
     if !game_state.is_changed() {
@@ -138,9 +151,9 @@ fn update_ui_elements_visibility(
 
     for (button_data, mut visibility, mut node) in &mut buttons {
         let should_show = match (&game_state.state, button_data.name.as_str()) {
-            (GameStates::Drawing, "Compile") => true,
-            (GameStates::Executing(_), "Terminate" | "Pause" | "Speed") => true,
-            (GameStates::Paused(_), "Terminate" | "Resume" | "Speed") => true,
+            (GameState::Drawing, "Compile") => true,
+            (GameState::Executing(_), "Terminate" | "Pause" | "Speed") => true,
+            (GameState::Paused(_), "Terminate" | "Resume" | "Speed") => true,
             (_, "Compile" | "Terminate" | "Pause" | "Resume" | "Speed") => false,
             _ => true,
         };
@@ -155,6 +168,69 @@ fn update_ui_elements_visibility(
         } else {
             Display::None
         };
+    }
+}
+
+fn button_system(
+    popups: Query<(), With<Popup>>,
+    ez_popups: Query<(), With<EasyClosablePopup>>,
+    parents: Query<&ChildOf>,
+    mut buttons: Query<
+        (Entity, Has<Pressed>, &Hovered, &mut BackgroundColor, &mut BorderColor),
+        With<bevy::ui_widgets::Button>,
+    >,
+) {
+    let popup_open = !popups.is_empty();
+    let ez_popup_open = !popups.is_empty();
+
+    for (entity, pressed, hovered, mut color, mut border_color) in &mut buttons {
+        let blocked =
+            (popup_open && !is_inside_popup(entity, &parents, &popups))
+                || (ez_popup_open && !is_inside_ez_popup(entity, &parents, &ez_popups));
+
+        let (bg, border): (Color, Color) = if blocked {
+            (NORMAL_BUTTON, Color::BLACK)
+        } else if pressed {
+            (PRESSED_BUTTON, Color::from(RED))
+        } else if hovered.get() {
+            (HOVERED_BUTTON, Color::WHITE)
+        } else {
+            (NORMAL_BUTTON, Color::BLACK)
+        };
+
+        *color = bg.into();
+        *border_color = BorderColor::all(border);
+    }
+}
+
+fn is_inside_popup(
+    mut e: Entity,
+    parents: &Query<&ChildOf>,
+    popups: &Query<(), With<Popup>>,
+) -> bool {
+    loop {
+        if popups.contains(e) {
+            return true;
+        }
+        match parents.get(e) {
+            Ok(parent) => e = parent.parent(),
+            Err(_) => return false,
+        }
+    }
+}
+fn is_inside_ez_popup(
+    mut e: Entity,
+    parents: &Query<&ChildOf>,
+    popups: &Query<(), With<EasyClosablePopup>>,
+) -> bool {
+    loop {
+        if popups.contains(e) {
+            return true;
+        }
+        match parents.get(e) {
+            Ok(parent) => e = parent.parent(),
+            Err(_) => return false,
+        }
     }
 }
 fn update_slider_visuals(
@@ -198,21 +274,22 @@ pub struct EasyClosablePopup;
 
 fn close_popup(
     mut mouse_button_input: ResMut<ButtonInput<MouseButton>>,
-    buttons: Query<&Interaction, (Changed<Interaction>, With<PopupCloseButton>)>,
+    buttons: Query<Has<Pressed>, With<PopupCloseButton>>,
     popups: Query<Entity, With<Popup>>,
-    easy_closable_popups: Query<Entity, With<EasyClosablePopup>>,
+    easy_closable_popups: Query<(Entity, &Hovered), With<EasyClosablePopup>>,
     input: Res<ButtonInput<KeyCode>>,
     mut commands: Commands,
 ) {
-    let button = buttons.iter().any(|i| *i == Interaction::Pressed);
+    let button = buttons.iter().any(|i| i);
     let mouse = mouse_button_input.get_just_pressed().count() > 0;
     let keyboard = input.get_just_pressed().count() > 0;
 
-    if keyboard || mouse {
-        for e in &easy_closable_popups {
+    for (e, hovered) in &easy_closable_popups {
+        if keyboard || (mouse && !hovered.get()) {
             commands.entity(e).despawn();
         }
     }
+
     if button || input.just_pressed(KeyCode::Escape) {
         for e in &popups {
             commands.entity(e).despawn();

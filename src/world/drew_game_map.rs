@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Resource)]
 pub struct DrewBlocks {
-    pub(crate) block_data: Vec<(i32, i32, BlockState)>,
+    pub(crate) block_data: Vec<(i64, i64, BlockState)>,
 }
 
 impl DrewBlocks {
@@ -20,7 +20,7 @@ impl DrewBlocks {
         Ok(file.into())
     }
 
-    pub fn add_or_replace_block(&mut self, state: BlockState, x: i32, y: i32) {
+    pub fn add_or_replace_block(&mut self, state: BlockState, x: i64, y: i64) {
         if let Some(existing_block) = self
             .block_data
             .iter_mut()
@@ -36,7 +36,7 @@ impl DrewBlocks {
 #[derive(Serialize, Deserialize)]
 struct StateGroup {
     state: BlockState,
-    positions: Vec<[i32; 2]>,
+    positions: Vec<[i64; 2]>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -51,7 +51,7 @@ impl From<&DrewBlocks> for DrewBlocksFile {
 }
 
 impl DrewBlocksFile {
-    pub fn blocks_to_state_group(blocks: &Vec<(i32, i32, BlockState)>) -> Self {
+    pub fn blocks_to_state_group(blocks: &Vec<(i64, i64, BlockState)>) -> Self {
         let mut groups: Vec<StateGroup> = Vec::new();
 
         for (x, y, state) in blocks {

@@ -4,11 +4,15 @@ use bevy::ecs::children;
 use bevy::math::Vec2;
 use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
-use bevy::ui_widgets::{observe, Slider, SliderRange, SliderValue, TrackClick, slider_self_update, SliderThumb};
+use bevy::ui_widgets::{observe, Slider, SliderRange, SliderValue, TrackClick, slider_self_update, SliderThumb, Button};
+use crate::plugins::control::{copy_selection, paste_selection_or_mouse};
 
-pub fn button_bundle(text: String) -> impl Bundle {
+pub fn button_bundle(text: impl Into<String> + Clone,
+                     on_click: impl Bundle) -> impl Bundle
+{
     (
         Button,
+        Hovered::default(),
         Node {
             padding: UiRect::axes(px(10.0), px(6.0)),
             border: UiRect::all(px(2.0)),
@@ -20,7 +24,7 @@ pub fn button_bundle(text: String) -> impl Bundle {
         BorderColor::all(Color::WHITE),
         BackgroundColor(NORMAL_BUTTON),
         children![(
-            Text::new(&text),
+            Text::new(text.clone()),
             TextFont {
                 font_size: FontSize::Px(13.0),
                 ..default()
@@ -28,8 +32,9 @@ pub fn button_bundle(text: String) -> impl Bundle {
             TextColor(Color::srgb(0.9, 0.9, 0.9)),
             TextShadow::default(),
         )],
-        CustomUiData { name: text },
+        CustomUiData { name: text.into() },
         Visibility::Visible,
+        on_click
     )
 }
 
@@ -88,7 +93,7 @@ pub fn slider_bundle(text: String, min: f32, max: f32, initial: f32) -> impl Bun
     )
 }
 
-pub fn help_popup(message: String) -> impl Bundle {
+pub fn text_popup(message: impl Into<String>) -> impl Bundle {
     (
         Popup,
         GlobalZIndex(100),
@@ -141,6 +146,7 @@ pub fn close_button() -> impl Bundle {
         children![(
             PopupCloseButton,
             Button,
+            Hovered::default(),
             Node {
                 width: px(26.0),
                 height: px(26.0),
@@ -168,7 +174,7 @@ pub fn selection_popup(xy: Vec2) -> impl Bundle {
     (
         EasyClosablePopup,
         GlobalZIndex(100),
-        // сама панель
+        Hovered::default(),
         Node {
             width: px(360.0),
             padding: UiRect::all(px(16.0)),
@@ -183,9 +189,9 @@ pub fn selection_popup(xy: Vec2) -> impl Bundle {
         BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
         BorderColor::all(Color::WHITE),
         children![
-            button_bundle(String::from("Copy")),
-            button_bundle(String::from("Paste")),
-            button_bundle(String::from("Save Blueprint"))
+            button_bundle("Copy",copy_selection()),
+            button_bundle("Paste",paste_selection_or_mouse()),
+            // button_bundle(String::from("Save Blueprint"),())
         ],
     )
 }
@@ -207,7 +213,6 @@ pub fn enter_name_popup() -> impl Bundle {
         BorderColor::all(Color::WHITE),
         children![
             close_button(),
-
-            button_bundle(String::from("Confirm")),],
+            button_bundle("Confirm",())],
     )
 }

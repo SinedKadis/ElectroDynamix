@@ -22,7 +22,7 @@ impl Direction {
         }
     }
 
-    pub fn to_tuple_int(&self) -> (i32, i32) {
+    pub fn to_tuple_int(&self) -> (i8, i8) {
         match self {
             Direction::Left => (-1,0),
             Direction::Right => (1,0),
