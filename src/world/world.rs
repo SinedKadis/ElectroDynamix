@@ -47,24 +47,11 @@ fn draw_preview(
 
     if let Some(cursor_position) = window.cursor_position()
         && let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position)
-
+        && let Selection::Block(state) = sel_state.state
     {
-        match sel_state.state {
-            Selection::Block(state) => {
-                for pos in get_positions_in_range(world_pos.floor().as_i64vec2(), get_brush_size(sliders)-1) {
-                    state.draw_preview(pos.as_vec2(), &mut gizmos)
-                }
-            }
-            Selection::Selection(first, maybe_second) => {
-                let end = match maybe_second {
-                    Some(second) => second,
-                    None => world_pos.floor().as_i64vec2(),
-                };
-                let (center, size) = selection_rect(first, end);
-                gizmos.rect_2d(center, size, WHITE);
-            }
+        for pos in get_positions_in_range(world_pos.floor().as_i64vec2(), get_brush_size(sliders) - 1) {
+            state.draw_preview(pos.as_vec2(), &mut gizmos)
         }
-
     }
 }
 fn selection_rect(a: I64Vec2, b: I64Vec2) -> (Vec2, Vec2) {
@@ -78,12 +65,25 @@ fn draw_blocks(mut painter: ShapePainter,
                config : Res<Config>,
                game_state: Res<CurrentGameState>,
                camera_query: Single<(&Camera, &GlobalTransform,&mut Projection)>,
-               window: Single<&Window>) {
+               window: Single<&Window>,
+               sel_state: Res<SelectedState>,) {
     match &game_state.state {
         GameState::Drawing => {
             for block_data in &blocks.block_data {
                 let state = block_data.2;
                 state.draw(Vec2::new(block_data.0 as f32, block_data.1 as f32), &mut gizmos, &mut painter,config.draw_arrows);
+            }
+            let (camera,gt,_) = camera_query.into_inner();
+            if let Some(cursor_position) = window.cursor_position()
+                && let Ok(world_pos) = camera.viewport_to_world_2d(gt, cursor_position)
+                && let Selection::Selection(first, maybe_second) = sel_state.state
+            {
+                let end = match maybe_second {
+                    Some(second) => second,
+                    None => world_pos.floor().as_i64vec2(),
+                };
+                let (center, size) = selection_rect(first, end);
+                gizmos.rect_2d(center, size, WHITE);
             }
         }
 
