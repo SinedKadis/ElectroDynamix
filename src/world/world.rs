@@ -21,7 +21,7 @@ impl Plugin for WorldPlugin {
         app.insert_resource(GameState{state: GameStates::Drawing});
         app.insert_resource(UpdateTimer(Timer::from_seconds(1.0, TimerMode::Repeating)));
         app.add_systems(Update, draw_blocks);
-        app.add_systems(FixedUpdate, update_blocks);
+        app.add_systems(Update, update_blocks);
     }
 }
 
@@ -132,6 +132,7 @@ pub enum GameStates{
 #[derive(Resource)]
 pub(crate) struct UpdateTimer(pub(crate) Timer);
 
+const MAX_STEPS_PER_FRAME: u32 = 512;
 fn update_blocks(mut game_state: ResMut<GameState>,
     mut timer: ResMut<UpdateTimer>,
     time: Res<Time>,
@@ -139,25 +140,33 @@ fn update_blocks(mut game_state: ResMut<GameState>,
     window: Single<&Window>,
     camera_query: Single<(&Camera, &GlobalTransform)>,
 ) {
-    if timer.0.tick(time.delta()).just_finished() {
-        let new_game_map : GameMap = match &game_state.state {
-            GameStates::Drawing => {return;}
-            GameStates::Compiling => {return;}
-            GameStates::Executing(game_map) => {game_map.step()}
-            GameStates::Paused(_) => {return;}
-        };
-        game_state.state = GameStates::Executing(new_game_map);
+    let (camera, camera_transform) = camera_query.into_inner();
+    let cursor_world = if mouse_button_input.pressed(Left) {
+        window
+            .cursor_position()
+            .and_then(|c| camera.viewport_to_world_2d(camera_transform, c).ok())
+    } else {
+        None
+    };
+
+    {
+        let gs = game_state.bypass_change_detection();
+        if let GameStates::Executing(game) | GameStates::Paused(game) = &mut gs.state {
+            let cell = cursor_world.and_then(|p| {
+                game.to_game_pos(p.x.floor() as i32, p.y.floor() as i32)
+            });
+            game.set_held(cell);
+        }
     }
-    if mouse_button_input.pressed(Left) {
-        let (camera, camera_transform) = camera_query.into_inner();
-        if let Some(cursor_position) = window.cursor_position()  {
-            if let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position) {
-                if let GameStates::Executing(game) | GameStates::Paused(game) = &mut game_state.state {
-                    if let Some(p) = game.to_game_pos(world_pos.x.floor() as i32, world_pos.y.floor() as i32) {
-                        game.press_button(p);
-                    }
-                }
-            }
+
+    let steps = timer.0
+        .tick(time.delta())
+        .times_finished_this_tick()
+        .min(MAX_STEPS_PER_FRAME);
+
+    if steps > 0 {
+        if let GameStates::Executing(game_map) = &mut game_state.state {
+            game_map.step_n(steps);
         }
     }
 }
