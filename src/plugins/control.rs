@@ -56,6 +56,7 @@ MMB - Pick block
 RMB - Select region
 Ctrl+C - Copy selected region to clipboard
 Ctrl+V - Paste region from clipboard to mouse or selection
+Shift - Draw Paste preview
 Scroll - Rotate block
 Ctrl+Scroll - Zoom
 WASD - Move camera
@@ -76,6 +77,7 @@ fn controls(
     clipboard: Option<Res<ClipboardRes>>,
     window: Single<&Window>,
     camera_query_2: Single<(&Camera, &GlobalTransform)>,
+    mut gizmos: Gizmos
 ) {
     if popups.iter().count() > 0 {
         return;
@@ -148,6 +150,9 @@ fn controls(
                     game_state.state = GameState::Drawing;
                 }
             }
+            if let Selection::Selection(_, _) = &selection.state {
+                selection.state = Block(BlockState::Empty);
+            }
         }
         if input.just_pressed(KeyCode::Digit1) {
             selection.state = Block(BlockState::Empty);
@@ -194,13 +199,60 @@ fn controls(
         }
 
         if ctrl && input.just_pressed(KeyCode::KeyV) {
-            paste_from_clipboard(&mut blocks, &clipboard, &selection, window, camera_query_2);
+            paste_from_clipboard(&mut blocks, &clipboard, &selection, window, camera_query_2,&game_state.state);
             if let Selection::Selection(_, _) = &selection.state {
                 selection.state = Block(BlockState::Empty);
             }
             return;
         }
+
+        if input.pressed(KeyCode::ShiftLeft) {
+            let Some(clipboard) = clipboard else { return };
+            if game_state.state != GameState::Drawing {return;}
+
+            match clipboard.0.lock().unwrap().get_text() {
+                Ok(text) => {
+                    let Ok(file) = serde_json::from_str::<DrewBlocksFile>(&text) else {
+                        error!("Cannot paste: invalid JSON");
+                        return;
+                    };
+                    let anchor = match get_paste_anchor(&mut selection, window, camera_query_2) {
+                        Some(value) => value,
+                        None => return,
+                    };
+
+                    for (x, y, state) in DrewBlocks::from(file).block_data {
+                        state.draw_preview(Vec2::new((x + anchor.x) as f32, (y + anchor.y) as f32), &mut gizmos)
+                    }
+                }
+                Err(e) => {
+                    error!("Cannot read clipboard: {}", e);
+                    return;
+                }
+            }
+        }
     }
+}
+
+fn get_paste_anchor(selection: &SelectedState, window: Single<&Window>, camera_query_2: Single<(&Camera, &GlobalTransform)>) -> Option<I64Vec2> {
+    let anchor: I64Vec2 = match selection.state {
+        Selection::Selection(first, Some(second)) => {
+            I64Vec2::new(first.x.min(second.x), first.y.max(second.y))
+        }
+        _ => {
+            let (camera, camera_transform) = camera_query_2.into_inner();
+            let Some(cursor_position) = window.cursor_position() else {
+                return None;
+            };
+            let Ok(world_pos) =
+                camera.viewport_to_world_2d(camera_transform, cursor_position)
+            else {
+                return None;
+            };
+            world_pos.floor().as_i64vec2()
+        }
+    };
+    Some(anchor)
 }
 
 fn left_mouse_click(
@@ -420,8 +472,9 @@ pub fn paste_selection_or_mouse() -> impl Bundle {
               window: Single<&Window>,
               camera_query: Single<(&Camera, &GlobalTransform)>,
               popups: Query<Entity, With<EasyClosablePopup>>,
-              mut commands: Commands| {
-            paste_from_clipboard(&mut blocks, &clipboard, &selection, window, camera_query);
+              mut commands: Commands,
+              game_mode: Res<CurrentGameState>| {
+            paste_from_clipboard(&mut blocks, &clipboard, &selection, window, camera_query, &game_mode.state);
             for e in &popups {
                 commands.entity(e).despawn();
             }
@@ -587,31 +640,19 @@ fn paste_from_clipboard(
     selection: &SelectedState,
     window: Single<&Window>,
     camera_query: Single<(&Camera, &GlobalTransform)>,
+    game_mode: &GameState
 ) {
     let Some(clipboard) = clipboard else { return };
-
+    if *game_mode != GameState::Drawing {return;}
     match clipboard.0.lock().unwrap().get_text() {
         Ok(text) => {
             let Ok(file) = serde_json::from_str::<DrewBlocksFile>(&text) else {
                 error!("Cannot paste: invalid JSON");
                 return;
             };
-            let anchor: I64Vec2 = match selection.state {
-                Selection::Selection(first, Some(second)) => {
-                    I64Vec2::new(first.x.min(second.x), first.y.max(second.y))
-                }
-                _ => {
-                    let (camera, camera_transform) = camera_query.into_inner();
-                    let Some(cursor_position) = window.cursor_position() else {
-                        return;
-                    };
-                    let Ok(world_pos) =
-                        camera.viewport_to_world_2d(camera_transform, cursor_position)
-                    else {
-                        return;
-                    };
-                    world_pos.floor().as_i64vec2()
-                }
+            let anchor: I64Vec2 = match get_paste_anchor(selection, window, camera_query) {
+                Some(value) => value,
+                None => return,
             };
 
             for (x, y, state) in DrewBlocks::from(file).block_data {

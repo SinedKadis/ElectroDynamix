@@ -86,7 +86,7 @@ fn setup(mut commands: Commands) {
         children![
             button_bundle("Help",spawn(|| text_popup(HELP_MESSAGE))),
             button_bundle("Toggle Preview",toggle_config(|c| &mut c.draw_preview)),
-            button_bundle("Toggle Arrows",toggle_config(|c| &mut c.draw_preview))
+            button_bundle("Toggle Arrows",toggle_config(|c| &mut c.draw_arrows))
         ],
     ));
 
