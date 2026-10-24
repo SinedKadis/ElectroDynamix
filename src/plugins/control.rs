@@ -1,7 +1,9 @@
-use std::sync::Mutex;
 use crate::plugins::config::Config;
-use crate::plugins::window::{help_popup, CustomUiData, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON, selection_popup};
+use crate::plugins::ui_elements::{help_popup, selection_popup};
+use crate::plugins::window::{CustomUiData, HOVERED_BUTTON, NORMAL_BUTTON, PRESSED_BUTTON};
 use crate::world::direction::Direction;
+use crate::world::drew_game_map::{DrewBlocks, DrewBlocksFile};
+use crate::world::world::Selection::Block;
 use crate::world::world::{BlockState, GameState, GameStates, SelectedState, Selection, UpdateTimer};
 use crate::world::{game_map, world};
 use bevy::color::palettes::basic::RED;
@@ -11,9 +13,8 @@ use bevy::math::ops::powf;
 use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
 use bevy::ui_widgets::SliderValue;
+use std::sync::Mutex;
 use std::time::Duration;
-use crate::world::drew_game_map::{DrewBlocks, DrewBlocksFile};
-use crate::world::world::Selection::{Block};
 
 pub struct ControlPlugin;
 

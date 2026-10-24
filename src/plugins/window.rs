@@ -1,9 +1,10 @@
 use crate::world::world::{GameState, GameStates};
 use bevy::input_focus::InputFocus;
-use bevy::picking::hover::Hovered;
-use bevy::
-prelude::*;
-use bevy::ui_widgets::{Slider, SliderRange, SliderThumb, SliderValue, TrackClick, observe, slider_self_update};
+use bevy::prelude::*;
+use bevy::ui_widgets::{
+    SliderRange, SliderThumb, SliderValue,
+};
+use crate::plugins::ui_elements::{button_bundle, slider_bundle};
 
 pub struct UiPlugin;
 
@@ -12,8 +13,14 @@ impl Plugin for UiPlugin {
         app.init_resource::<InputFocus>();
         app.add_systems(Startup, setup);
         app.add_systems(PostStartup, setup_camera);
-        app.add_systems(Update, (update_ui_elements_visibility,
-                                 update_slider_visuals,close_popup));
+        app.add_systems(
+            Update,
+            (
+                update_ui_elements_visibility,
+                update_slider_visuals,
+                close_popup,
+            ),
+        );
     }
 }
 
@@ -24,7 +31,6 @@ pub const PRESSED_BUTTON: Color = Color::srgb(0.0, 0.0, 0.0);
 
 pub const SLIDER_TRACK: Color = Color::srgb(0.15, 0.15, 0.15);
 pub const SLIDER_THUMB: Color = Color::srgb(0.25, 0.25, 0.25);
-
 
 fn setup(mut commands: Commands) {
     // 1. Camera
@@ -102,7 +108,7 @@ fn setup(mut commands: Commands) {
             ..default()
         },
         children![
-            slider_bundle(String::from("Speed"),0f32,1f32,0f32),
+            slider_bundle(String::from("Speed"), 0f32, 1f32, 0f32),
             button_bundle(String::from("Save")),
             button_bundle(String::from("Load"))
         ],
@@ -118,9 +124,7 @@ fn setup(mut commands: Commands) {
             row_gap: px(3.0),
             ..default()
         },
-        children![
-            slider_bundle(String::from("Size"),1f32,5f32,1f32)
-        ],
+        children![slider_bundle(String::from("Size"), 1f32, 5f32, 1f32)],
     ));
 }
 
@@ -137,12 +141,20 @@ fn update_ui_elements_visibility(
             (GameStates::Drawing, "Compile") => true,
             (GameStates::Executing(_), "Terminate" | "Pause" | "Speed") => true,
             (GameStates::Paused(_), "Terminate" | "Resume" | "Speed") => true,
-            (_,"Compile" |"Terminate" | "Pause" | "Resume" | "Speed") => false,
+            (_, "Compile" | "Terminate" | "Pause" | "Resume" | "Speed") => false,
             _ => true,
         };
 
-        *visibility = if should_show { Visibility::Visible } else { Visibility::Hidden };
-        node.display = if should_show { Display::Flex } else { Display::None };
+        *visibility = if should_show {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
+        node.display = if should_show {
+            Display::Flex
+        } else {
+            Display::None
+        };
     }
 }
 fn update_slider_visuals(
@@ -163,7 +175,6 @@ fn update_slider_visuals(
     }
 }
 
-
 fn setup_camera(camera_query: Single<(&mut Camera, &mut Transform, &mut Projection)>) {
     let (_camera, _transform, mut projection) = camera_query.into_inner();
 
@@ -172,193 +183,18 @@ fn setup_camera(camera_query: Single<(&mut Camera, &mut Transform, &mut Projecti
     }
 }
 
-
-
-fn button_bundle(text: String) -> impl Bundle {
-    (
-        Button,
-        Node {
-            padding: UiRect::axes(px(10.0), px(6.0)),
-            border: UiRect::all(px(2.0)),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            border_radius: BorderRadius::all(px(6.0)),
-            ..default()
-        },
-        BorderColor::all(Color::WHITE),
-        BackgroundColor(NORMAL_BUTTON),
-        children![(
-            Text::new(&text),
-            TextFont {
-                font_size: FontSize::Px(13.0),
-                ..default()
-            },
-            TextColor(Color::srgb(0.9, 0.9, 0.9)),
-            TextShadow::default(),
-        )],
-        CustomUiData { name: text},
-        Visibility::Visible
-    )
-}
-
-fn slider_bundle(text: String, min: f32, max: f32, initial: f32) -> impl Bundle {
-    (
-        Node {
-            flex_direction: FlexDirection::Column,
-            align_items: AlignItems::Center,
-            row_gap: px(4.0),
-            ..default()
-        },
-        children![
-            (
-                Text::new(text.clone()),
-                TextFont { font_size: FontSize::Px(13.0), ..default() },
-                TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                TextShadow::default(),
-                CustomUiData { name: text.clone() },
-            ),
-            (
-                Slider {
-                    track_click: TrackClick::Snap,
-                    ..default()
-                },
-                SliderValue(initial),
-                SliderRange::new(min, max),
-                Node {
-                    width: px(200.0),
-                    height: px(24.0),
-                    padding: UiRect::all(px(2.0)),
-                    border: UiRect::all(px(2.0)),
-                    ..default()
-                },
-                BorderColor::all(Color::WHITE),
-                BackgroundColor(SLIDER_TRACK),
-                CustomUiData { name: text },
-                Hovered::default(),
-                observe(slider_self_update),
-                children![(
-                    SliderThumb,
-                    Node {
-                        width: px(16.0),
-                        height: px(20.0),
-                        position_type: PositionType::Absolute,
-                        left: px(0.0),
-                        top: px(0.0),
-                        ..default()
-                    },
-                    BackgroundColor(SLIDER_THUMB),
-                )],
-            ),
-        ],
-    )
-}
-
 #[derive(Component)]
 pub struct CustomUiData {
     pub(crate) name: String,
 }
 
 #[derive(Component)]
-struct PopupCloseButton;
-
-pub fn help_popup(message: String) -> impl Bundle {
-    (
-        Popup,
-        GlobalZIndex(100),
-        Node {
-            position_type: PositionType::Absolute,
-            width: percent(100.0),
-            height: percent(100.0),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            ..default()
-        },
-        BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)),
-        children![(
-            // сама панель
-            Node {
-                width: px(360.0),
-                padding: UiRect::all(px(16.0)),
-                border: UiRect::all(px(2.0)),
-                flex_direction: FlexDirection::Column,
-                row_gap: px(12.0),
-                border_radius: BorderRadius::all(px(8.0)),
-                ..default()
-            },
-            BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
-            BorderColor::all(Color::WHITE),
-            children![
-                // строка с крестиком, прижатым вправо
-                (
-                    Node {
-                        width: percent(100.0),
-                        justify_content: JustifyContent::FlexEnd,
-                        ..default()
-                    },
-                    children![(
-                        PopupCloseButton,
-                        Button,
-                        Node {
-                            width: px(26.0),
-                            height: px(26.0),
-                            border: UiRect::all(px(2.0)),
-                            justify_content: JustifyContent::Center,
-                            align_items: AlignItems::Center,
-                            border_radius: BorderRadius::all(px(4.0)),
-                            ..default()
-                        },
-                        BackgroundColor(NORMAL_BUTTON),
-                        BorderColor::all(Color::WHITE),
-                        children![(
-                            Text::new("X"),
-                            TextFont { font_size: FontSize::Px(14.0), ..default() },
-                            TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                        )],
-                    )],
-                ),
-                // текст попапа (переносится по ширине панели сам)
-                (
-                    Text::new(message),
-                    TextFont { font_size: FontSize::Px(14.0), ..default() },
-                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
-                ),
-            ],
-        )],
-    )
-}
+pub struct PopupCloseButton;
 
 #[derive(Component)]
 pub struct Popup;
 #[derive(Component)]
 pub struct EasyClosablePopup;
-
-pub fn selection_popup(xy: Vec2) -> impl Bundle {
-    (
-        EasyClosablePopup,
-        GlobalZIndex(100),
-
-            // сама панель
-            Node {
-                width: px(360.0),
-                padding: UiRect::all(px(16.0)),
-                border: UiRect::all(px(2.0)),
-                flex_direction: FlexDirection::Column,
-                row_gap: px(12.0),
-                border_radius: BorderRadius::all(px(8.0)),
-                left: Val::Px(xy.x),
-                top: Val::Px(xy.y),
-                ..default()
-            },
-            BackgroundColor(Color::srgb(0.15, 0.15, 0.15)),
-            BorderColor::all(Color::WHITE),
-            children![
-
-                button_bundle(String::from("Copy")),
-                button_bundle(String::from("Paste"))
-            ],
-
-    )
-}
 
 fn close_popup(
     mut mouse_button_input: ResMut<ButtonInput<MouseButton>>,
@@ -372,7 +208,7 @@ fn close_popup(
     let mouse = mouse_button_input.get_just_pressed().count() > 0;
     let keyboard = input.get_just_pressed().count() > 0;
 
-    if  keyboard || mouse {
+    if keyboard || mouse {
         for e in &easy_closable_popups {
             commands.entity(e).despawn();
         }
