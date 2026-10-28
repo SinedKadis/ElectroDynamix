@@ -5,7 +5,7 @@ use bevy::math::Vec2;
 use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
 use bevy::ui_widgets::{observe, Slider, SliderRange, SliderValue, TrackClick, slider_self_update, SliderThumb, Button};
-use crate::plugins::control::{copy_selection, paste_selection_or_mouse};
+use crate::plugins::control::{copy_selection, cut_selection, delete_selection, paste_selection_or_mouse};
 
 pub fn button_bundle(text: impl Into<String> + Clone,
                      on_click: impl Bundle) -> impl Bundle
@@ -190,7 +190,9 @@ pub fn selection_popup(xy: Vec2) -> impl Bundle {
         BorderColor::all(Color::WHITE),
         children![
             button_bundle("Copy",copy_selection()),
-            button_bundle("Paste",paste_selection_or_mouse()),
+            button_bundle("Cut", cut_selection()),
+            button_bundle("Paste", paste_selection_or_mouse()),
+            button_bundle("Delete", delete_selection()),
             // button_bundle(String::from("Save Blueprint"),())
         ],
     )

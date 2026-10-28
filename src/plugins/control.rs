@@ -215,7 +215,7 @@ fn controls(
             return;
         }
         if input.just_pressed(KeyCode::Delete) {
-            delete_selection(blocks.into_inner(), &selection);
+            delete_selected(blocks.into_inner(), &selection);
             if let Selection::Selection(_, _) = &selection.state {
                 selection.state = Block(BlockState::Empty);
             }
@@ -479,6 +479,38 @@ pub fn copy_selection() -> impl Bundle {
         },
     )
 }
+
+pub fn cut_selection() -> impl Bundle {
+    observe(
+        move |_: On<Activate>,
+              clipboard: Option<Res<ClipboardRes>>,
+              mut blocks: ResMut<DrewBlocks>,
+              mut selection: ResMut<SelectedState>,
+              popups: Query<Entity, With<EasyClosablePopup>>,
+              mut commands: Commands| {
+            cut_selection_to_clipboard(blocks.into_inner(), &clipboard, &selection);
+            selection.state = Block(BlockState::Empty);
+            for e in &popups {
+                commands.entity(e).despawn();
+            }
+        },
+    )
+}
+pub fn delete_selection() -> impl Bundle {
+    observe(
+        move |_: On<Activate>,
+              blocks: ResMut<DrewBlocks>,
+              mut selection: ResMut<SelectedState>,
+              popups: Query<Entity, With<EasyClosablePopup>>,
+              mut commands: Commands| {
+            delete_selected(blocks.into_inner(), &selection);
+            selection.state = Block(BlockState::Empty);
+            for e in &popups {
+                commands.entity(e).despawn();
+            }
+        },
+    )
+}
 pub fn paste_selection_or_mouse() -> impl Bundle {
     observe(
         move |_: On<Activate>,
@@ -666,7 +698,7 @@ fn cut_selection_to_clipboard(
     }
 }
 
-fn delete_selection(
+fn delete_selected(
     mut blocks: &mut DrewBlocks,
     selection: &SelectedState,
 ) {
