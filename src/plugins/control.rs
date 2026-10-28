@@ -55,7 +55,9 @@ LMB - Place block
 MMB - Pick block
 RMB - Select region
 Ctrl+C - Copy selected region to clipboard
+Ctrl+X - Cut selected region to clipboard
 Ctrl+V - Paste region from clipboard to mouse or selection
+Delete - Delete selected blocks
 Shift - Draw Paste preview
 Scroll - Rotate block
 Ctrl+Scroll - Zoom
@@ -200,6 +202,20 @@ fn controls(
 
         if ctrl && input.just_pressed(KeyCode::KeyV) {
             paste_from_clipboard(&mut blocks, &clipboard, &selection, window, camera_query_2,&game_state.state);
+            if let Selection::Selection(_, _) = &selection.state {
+                selection.state = Block(BlockState::Empty);
+            }
+            return;
+        }
+        if ctrl && input.just_pressed(KeyCode::KeyX) {
+            cut_selection_to_clipboard(blocks.into_inner(), &clipboard, &selection);
+            if let Selection::Selection(_, _) = &selection.state {
+                selection.state = Block(BlockState::Empty);
+            }
+            return;
+        }
+        if input.just_pressed(KeyCode::Delete) {
+            delete_selection(blocks.into_inner(), &selection);
             if let Selection::Selection(_, _) = &selection.state {
                 selection.state = Block(BlockState::Empty);
             }
@@ -599,7 +615,7 @@ fn setup_clipboard(mut commands: Commands) {
 }
 
 fn copy_selection_to_clipboard(
-    blocks: &Res<DrewBlocks>,
+    blocks: &DrewBlocks,
     clipboard: &Option<Res<ClipboardRes>>,
     selection: &SelectedState,
 ) {
@@ -611,7 +627,69 @@ fn copy_selection_to_clipboard(
     let min = first.min(second);
     let max = first.max(second);
 
-    let file = DrewBlocksFile::blocks_to_state_group(
+    let file = block_file_from_selection(blocks, &min, &max);
+
+    match serde_json::to_string(&file) {
+        Ok(json) => {
+            if let Err(e) = clipboard.0.lock().unwrap().set_text(json) {
+                error!("Cannot copy: {e}");
+            }
+        }
+        Err(e) => error!("Cannot copy: {e}"),
+    }
+}
+
+fn cut_selection_to_clipboard(
+    mut blocks: &mut DrewBlocks,
+    clipboard: &Option<Res<ClipboardRes>>,
+    selection: &SelectedState,
+) {
+    let Some(clipboard) = clipboard else { return };
+    let Selection::Selection(first, Some(second)) = selection.state else {
+        return;
+    };
+
+    let min = first.min(second);
+    let max = first.max(second);
+
+    let file = block_file_from_selection(&mut blocks, &min, &max);
+
+    delete_blocks_from_to(&mut blocks, min, max);
+
+    match serde_json::to_string(&file) {
+        Ok(json) => {
+            if let Err(e) = clipboard.0.lock().unwrap().set_text(json) {
+                error!("Cannot copy: {e}");
+            }
+        }
+        Err(e) => error!("Cannot copy: {e}"),
+    }
+}
+
+fn delete_selection(
+    mut blocks: &mut DrewBlocks,
+    selection: &SelectedState,
+) {
+    let Selection::Selection(first, Some(second)) = selection.state else {
+        return;
+    };
+
+    let min = first.min(second);
+    let max = first.max(second);
+
+    delete_blocks_from_to(&mut blocks, min, max);
+}
+
+fn delete_blocks_from_to(blocks: &mut &mut DrewBlocks, min: I64Vec2, max: I64Vec2) {
+    blocks.block_data.iter_mut().filter(|(x, y, state)| {
+        *state != BlockState::Empty
+            && (min.x..=max.x).contains(x)
+            && (min.y..=max.y).contains(y)
+    }).for_each(|block| block.2 = BlockState::Empty);
+}
+
+fn block_file_from_selection(blocks: &DrewBlocks, min: &I64Vec2, max: &I64Vec2) -> DrewBlocksFile {
+    DrewBlocksFile::blocks_to_state_group(
         &blocks
             .block_data
             .iter()
@@ -622,16 +700,7 @@ fn copy_selection_to_clipboard(
             })
             .map(|(x, y, state)| (*x - min.x, *y - max.y, *state)) // относительно левого верхнего угла
             .collect::<Vec<_>>(),
-    );
-
-    match serde_json::to_string(&file) {
-        Ok(json) => {
-            if let Err(e) = clipboard.0.lock().unwrap().set_text(json) {
-                error!("Cannot copy: {e}");
-            }
-        }
-        Err(e) => error!("Cannot copy: {e}"),
-    }
+    )
 }
 
 fn paste_from_clipboard(
