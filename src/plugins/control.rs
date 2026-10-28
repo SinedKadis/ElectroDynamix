@@ -160,15 +160,18 @@ fn controls(
             selection.state = Block(BlockState::Empty);
         }
         if input.just_pressed(KeyCode::Digit2) {
-            selection.state = Block(BlockState::Copper);
+            selection.state = Block(BlockState::Wall);
         }
         if input.just_pressed(KeyCode::Digit3) {
-            selection.state = Block(BlockState::Electricity([false, false, true, false]));
+            selection.state = Block(BlockState::Copper);
         }
         if input.just_pressed(KeyCode::Digit4) {
-            selection.state = Block(BlockState::Diode(Direction::Right, false, false));
+            selection.state = Block(BlockState::Electricity([false, false, true, false]));
         }
         if input.just_pressed(KeyCode::Digit5) {
+            selection.state = Block(BlockState::Diode(Direction::Right, false, false));
+        }
+        if input.just_pressed(KeyCode::Digit6) {
             selection.state = Block(BlockState::Bridge([false; 4]));
         }
 
@@ -484,7 +487,7 @@ pub fn cut_selection() -> impl Bundle {
     observe(
         move |_: On<Activate>,
               clipboard: Option<Res<ClipboardRes>>,
-              mut blocks: ResMut<DrewBlocks>,
+              blocks: ResMut<DrewBlocks>,
               mut selection: ResMut<SelectedState>,
               popups: Query<Entity, With<EasyClosablePopup>>,
               mut commands: Commands| {

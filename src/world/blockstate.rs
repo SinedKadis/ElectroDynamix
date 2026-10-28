@@ -1,6 +1,6 @@
 use std::ops::Add;
-use bevy::color::palettes::css::{ORANGE, ORANGE_RED, RED};
-use bevy::color::palettes::tailwind::{CYAN_600, CYAN_700, YELLOW_300, YELLOW_700};
+use bevy::color::palettes::css::{DARK_GRAY, GRAY, ORANGE, ORANGE_RED, RED};
+use bevy::color::palettes::tailwind::{CYAN_600, CYAN_700, GRAY_50, GRAY_500, GRAY_700, YELLOW_300, YELLOW_700};
 use bevy::prelude::{Color, Gizmos, Isometry2d, Rot2, Vec2, Vec3};
 use bevy_vector_shapes::prelude::{DiscPainter, RectPainter, ShapePainter};
 use serde::{Deserialize, Serialize};
@@ -14,7 +14,8 @@ pub enum BlockState{
     Electricity([bool;4]),
     Diode(Direction,bool,bool),
     Button(bool),
-    Bridge([bool;4])
+    Bridge([bool;4]),
+    Wall,
 }
 
 impl BlockState {
@@ -41,6 +42,7 @@ impl BlockState {
                     Color::from(ORANGE_RED)
                 }
             }
+            BlockState::Wall => Color::from(GRAY_700),
         }
     }
     pub fn draw_preview(&self, world_pos: Vec2, gizmos: &mut Gizmos) {
@@ -72,6 +74,21 @@ impl BlockState {
                 self.draw_arrows(world_pos, gizmos, &dir, true, self.get_color());
 
             }
+            BlockState::Wall => {
+                gizmos.rect_2d(world_pos.floor().add(Vec2::new(0.5,0.5)), Vec2::ONE, self.get_color());
+                gizmos.line_2d(
+                    world_pos.floor().add(Vec2::new(0.1,0.1)),
+                    world_pos.floor().add(Vec2::new(0.9,0.9)),
+                    self.get_color());
+                gizmos.line_2d(
+                    world_pos.floor().add(Vec2::new(0.1,0.3)),
+                    world_pos.floor().add(Vec2::new(0.7,0.9)),
+                    self.get_color());
+                gizmos.line_2d(
+                    world_pos.floor().add(Vec2::new(0.3,0.1)),
+                    world_pos.floor().add(Vec2::new(0.9,0.7)),
+                    self.get_color());
+            }
         }
     }
 
@@ -90,7 +107,7 @@ impl BlockState {
                 painter.rect(Vec2::splat(1.0));
                 painter.reset();
                 if draw_arrows {
-                    self.draw_arrows(world_pos, gizmos, directions, false, Color::WHITE);
+                    self.draw_arrows(world_pos, gizmos, directions, true, Color::WHITE);
                 }
             }
             BlockState::Diode(dir,_,_) => {
@@ -131,6 +148,12 @@ impl BlockState {
                 if draw_arrows {
                     self.draw_arrows(world_pos, gizmos, &dir, false, Color::BLACK);
                 }
+            }
+            BlockState::Wall => {
+                painter.color = self.get_color();
+                painter.translate(Vec3::new(world_pos.x.floor() + 0.5, world_pos.y.floor() + 0.5, 1.0));
+                painter.rect(Vec2::splat(1.0));
+                painter.reset();
             }
         }
     }
@@ -191,6 +214,7 @@ impl BlockState {
                 }
                 BlockState::Bridge(directions)
             }
+            BlockState::Wall => {*self}
         }
     }
 
@@ -210,6 +234,7 @@ impl BlockState {
             BlockState::Bridge(dir) => {
                 dir[(*request_from as usize+2)%4]
             }
+            BlockState::Wall => false
         }
     }
 
@@ -239,6 +264,7 @@ impl BlockState {
                 }
                 *self
             },
+            BlockState::Wall => *self
         }
     }
 }

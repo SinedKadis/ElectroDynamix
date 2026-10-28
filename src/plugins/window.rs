@@ -60,13 +60,14 @@ fn setup(mut commands: Commands) {
         },
         children![
             button_bundle("Rubber", select_block_state(BlockState::Empty)),
+            button_bundle("Wall", select_block_state(BlockState::Wall)),
             button_bundle("Copper", select_block_state(BlockState::Copper)),
             button_bundle(
-                "Electricity Right",
+                "Electricity",
                 select_block_state(BlockState::Electricity([false, false, true, false]))
             ),
             button_bundle(
-                "Diode Right",
+                "Diode",
                 select_block_state(BlockState::Diode(Direction::Right, false, false))
             ),
             button_bundle("Button",select_block_state(BlockState::Button(false))),
