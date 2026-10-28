@@ -17,10 +17,16 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+            arch: x86_64
+            platform: Linux
           - os: windows-latest
             target: x86_64-pc-windows-msvc
+            arch: x86_64
+            platform: Windows
           - os: macos-latest        # Apple Silicon
             target: aarch64-apple-darwin
+            arch: aarch64
+            platform: MacOS
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -37,6 +43,20 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      - name: Read version and archive name
+        id: meta
+        shell: bash
+        run: |
+          VERSION=$(cargo pkgid | sed 's/.*[#@]//')
+
+          if [ "v$VERSION" != "${{ github.ref_name }}" ]; then
+            echo "::error::Version in Cargo.toml (v$VERSION) is not same as (${{ github.ref_name }})"
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "archive=$BIN_NAME-${{ matrix.arch }}-${{ matrix.platform }}-$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Build
         run: cargo build --release --target ${{ matrix.target }}
 
@@ -45,7 +65,7 @@ jobs:
         run: |
           mkdir out
           cp target/${{ matrix.target }}/release/$BIN_NAME out/
-          tar -czf $BIN_NAME-${{ matrix.target }}.tar.gz -C out .
+          tar -czf ${{ steps.meta.outputs.archive }}.tar.gz -C out .
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
@@ -53,7 +73,7 @@ jobs:
         run: |
           mkdir out
           cp target/${{ matrix.target }}/release/$env:BIN_NAME.exe out/
-          Compress-Archive -Path out/* -DestinationPath "$env:BIN_NAME-${{ matrix.target }}.zip"
+          Compress-Archive -Path out/* -DestinationPath "${{ steps.meta.outputs.archive }}.zip"
 
       - uses: softprops/action-gh-release@v2
         with:
