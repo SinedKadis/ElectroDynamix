@@ -229,7 +229,8 @@ fn controls(
             let Some(clipboard) = clipboard else { return };
             if game_state.state != GameState::Drawing {return;}
 
-            match clipboard.0.lock().unwrap().get_text() {
+            let text_result = clipboard.0.lock().unwrap().get_text();
+            match text_result {
                 Ok(text) => {
                     let Ok(file) = serde_json::from_str::<DrewBlocksFile>(&text) else {
                         error!("Cannot paste: invalid JSON");
@@ -240,8 +241,13 @@ fn controls(
                         None => return,
                     };
 
-                    for (x, y, state) in DrewBlocks::from(file).block_data {
+                    let clipboard_blocks = DrewBlocks::from(file).block_data;
+                    for (x, y, state) in &clipboard_blocks {
                         state.draw_preview(Vec2::new((x + anchor.x) as f32, (y + anchor.y) as f32), &mut gizmos)
+                    }
+
+                    if accumulated_mouse_scroll.delta != Vec2::ZERO {
+                        rotate_clipboard(accumulated_mouse_scroll, clipboard, &clipboard_blocks);
                     }
                 }
                 Err(e) => {
@@ -250,6 +256,39 @@ fn controls(
                 }
             }
         }
+    }
+}
+
+fn rotate_clipboard(accumulated_mouse_scroll: Res<AccumulatedMouseScroll>, clipboard: Res<ClipboardRes>, clipboard_blocks: &Vec<(i64, i64, BlockState)>) {
+    let delta = accumulated_mouse_scroll.delta;
+    let scroll = if delta.y != 0.0 { delta.y } else { delta.x };
+    let clockwise = scroll < 0.0;
+
+    let min_x = clipboard_blocks.iter().map(|(x, _, _)| *x).min().unwrap_or(0);
+    let max_x = clipboard_blocks.iter().map(|(x, _, _)| *x).max().unwrap_or(0);
+    let min_y = clipboard_blocks.iter().map(|(_, y, _)| *y).min().unwrap_or(0);
+    let max_y = clipboard_blocks.iter().map(|(_, y, _)| *y).max().unwrap_or(0);
+
+    let rotated_file = DrewBlocksFile::blocks_to_state_group(
+        clipboard_blocks
+            .iter()
+            .map(|(x, y, state)| {
+                let (nx, ny) = if clockwise {
+                    (*y - min_y, min_x - *x) // (y, -x)
+                } else {
+                    (max_y - *y, *x - max_x) // (-y, x)
+                };
+                (nx, ny, state.rotate(clockwise))
+            })
+    );
+
+    match serde_json::to_string(&rotated_file) {
+        Ok(json) => {
+            if let Err(e) = clipboard.0.lock().unwrap().set_text(json) {
+                error!("Cannot rotate clipboard: {e}");
+            }
+        }
+        Err(e) => error!("Cannot rotate clipboard: {e}"),
     }
 }
 
@@ -725,8 +764,7 @@ fn delete_blocks_from_to(blocks: &mut &mut DrewBlocks, min: I64Vec2, max: I64Vec
 
 fn block_file_from_selection(blocks: &DrewBlocks, min: &I64Vec2, max: &I64Vec2) -> DrewBlocksFile {
     DrewBlocksFile::blocks_to_state_group(
-        &blocks
-            .block_data
+        blocks.block_data
             .iter()
             .filter(|(x, y, state)| {
                 *state != BlockState::Empty
@@ -734,7 +772,6 @@ fn block_file_from_selection(blocks: &DrewBlocks, min: &I64Vec2, max: &I64Vec2) 
                     && (min.y..=max.y).contains(y)
             })
             .map(|(x, y, state)| (*x - min.x, *y - max.y, *state)) // относительно левого верхнего угла
-            .collect::<Vec<_>>(),
     )
 }
 

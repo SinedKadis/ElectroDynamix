@@ -46,21 +46,21 @@ pub struct DrewBlocksFile {
 
 impl From<&DrewBlocks> for DrewBlocksFile {
     fn from(blocks: &DrewBlocks) -> Self {
-        Self::blocks_to_state_group(&blocks.block_data) 
+        Self::blocks_to_state_group(blocks.block_data.clone())
     }
 }
 
 impl DrewBlocksFile {
-    pub fn blocks_to_state_group(blocks: &Vec<(i64, i64, BlockState)>) -> Self {
+    pub fn blocks_to_state_group(blocks: impl IntoIterator<Item = (i64, i64, BlockState)>) -> Self {
         let mut groups: Vec<StateGroup> = Vec::new();
 
         for (x, y, state) in blocks {
-            if *state == BlockState::Empty {
+            if state == BlockState::Empty {
                 continue;
             }
-            match groups.iter_mut().find(|g| g.state == *state) {
-                Some(group) => group.positions.push([*x, *y]),
-                None => groups.push(StateGroup { state: *state, positions: vec![[*x, *y]] }),
+            match groups.iter_mut().find(|g| g.state == state) {
+                Some(group) => group.positions.push([x, y]),
+                None => groups.push(StateGroup { state, positions: vec![[x, y]] }),
             }
         }
         DrewBlocksFile { block_data:groups }
